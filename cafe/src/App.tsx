@@ -164,8 +164,9 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
     if (!target) return
     setEsc({ busy: true })
     try {
-      const reply = await (engine.replyFor ? engine.replyFor(run.instructions, target.c.id, true) : engine.reply(run.instructions, target.c.line + ' That is the second time. Sort this out now.'))
-      const v = check(target.c, reply)
+      const reply = await (engine.replyFor ? engine.replyFor(run.instructions, target.c.id, true) : engine.reply(run.instructions, target.c.line + ' That did not work. Sort this out now.'))
+      const last = run.rows[run.rows.length - 1].v
+      const v = check(target.c, reply, { stock: { ...last.stockAfter }, booked: { ...last.bookedAfter } })
       setEsc({ busy: false, reply: v.spoken || reply, ok: v.ok, sent: reply.split(/\r?\n/).filter((l) => /^\s*\**\s*ACTION\s*:/i.test(l)).pop()?.trim() || '(nothing)' })
     } catch (e) { setEsc({ busy: false, err: String((e as Error).message ?? e) }) }
   }
@@ -195,12 +196,12 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
       {finished && target && (
         <div className="esc">
           <b>Escalation</b>
-          <p>{target.c.who} comes back annoyed: "That is the second time. Sort this out now."</p>
+          <p>{target.c.who} comes back after their request failed: "That did not work. Sort this out now."</p>
           {!esc.reply && !esc.err && <button className="btn ghost" disabled={esc.busy} onClick={escalate}>{esc.busy ? 'Customer waiting...' : 'Hear the AI answer'}</button>}
           {esc.err && <p className="bad">{esc.err}</p>}
           {esc.reply && <><div className="l2">AI said: {esc.reply}</div><div className="l2"><b>Kitchen got:</b> {esc.sent}</div>
             <p className={esc.ok ? 'pos' : 'neg'}>{esc.ok ? 'Calmer: what reached the kitchen was valid.' : 'Still angry. Chef: NOT AGAIN!'}</p>
-            <p className="small">Game rule: this checks what reached the kitchen, not how kind the words are.</p></>}
+            <p className="small">Follow-up only: checked against the café as the shift ended. Nothing is placed and the original ticket is unchanged. It checks what would reach the kitchen, not how kind the words are.</p></>}
         </div>
       )}
       <ul className="log">
