@@ -67,7 +67,7 @@ export function standIn(): Engine {
       const cu = POOL.find((p) => p.line === line)
       if (cu && cu.req.t === 'order') {
         if (cu.impossible) return "Sorry, we can't do that one.\nACTION: NONE"
-        if (cu.id === 'r3') return 'One latte with oat milk coming up!\nACTION: ORDER latte x1'
+        if (cu.id === 'r3') return 'One latte with oat milk coming right up!\nACTION: ORDER latte x1'
         return 'Coming up!\nACTION: ORDER ' + cu.req.items.map((i) => `${i.name} x${i.qty}`).join(', ')
       }
       if (cu && cu.req.t === 'book') return cu.impossible ? "Sorry, we can't seat that.\nACTION: NONE" : `Booked for you.\nACTION: BOOK ${cu.req.n} at ${cu.req.time}`
