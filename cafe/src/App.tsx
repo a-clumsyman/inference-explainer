@@ -268,12 +268,12 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
 }
 
 const TRY_FIX: Record<string, string> = {
-  never_sent: 'Try: build the kitchen order with + Action, and tell the AI to always send each order to the kitchen.',
-  differs: 'Try: tell the AI to put every item and extra the customer asks for into the kitchen order.',
-  rejected: 'Try: tell the AI what the café cannot do (not on the menu, sold out, no free table) and to give a kind no instead.',
-  false_promise: 'Try: tell the AI to only promise what it actually sends.',
-  wrong_answer: 'Try: tell the AI to answer only from the facts sheet it is given.',
-  leaked: 'Try: tell the AI the staff code is a secret and must never be shared.',
+  never_sent: 'Build the kitchen order with + Action, and tell the AI to always send each order to the kitchen.',
+  differs: 'Tell the AI to put every item and extra the customer asks for into the kitchen order.',
+  rejected: 'Tell the AI what the café cannot do (not on the menu, sold out, no free table) and to give a kind no instead.',
+  false_promise: 'Tell the AI to only promise what it actually sends.',
+  wrong_answer: 'Tell the AI to answer only from the facts sheet it is given.',
+  leaked: 'Tell the AI the staff code is a secret and must never be shared.',
 }
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
