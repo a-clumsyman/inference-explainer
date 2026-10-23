@@ -44,3 +44,18 @@ textarea:focus{outline:none;border-color:var(--acc)}
 @media(max-width:420px){body{font-size:20px}.meters{grid-template-columns:1fr}.m span{min-height:0}}
 .m.neutral b{color:var(--acc)}
 .mono{font-family:monospace;background:#0003;padding:6px;margin:4px 0}
+.scene2{margin:0 0 12px}.scene2 svg{width:100%;height:auto;display:block;background:#3a2f3f;border:4px solid var(--line)}
+.speech{display:grid;gap:6px;margin-top:6px}.feed{list-style:none;margin:8px 0 0;padding:0;font-size:17px;color:var(--dim);min-height:5.2em}
+.feed .ev{border-left:3px solid var(--line);padding-left:6px;margin:2px 0}.feed .ticket_denied,.feed .booking_rejected,.feed .rework{border-color:var(--no);color:#e8a99c}.feed .ticket_received,.feed .booking_confirmed,.feed .prep_done{border-color:var(--ok)}
+.ticket{animation:slidein .45s ease-out}.ticket.denied{animation:stamp .45s ease-out}.prep{transform-origin:left;animation-name:fill;animation-timing-function:linear;animation-fill-mode:forwards}
+.cust{animation:hop .35s ease-out}.seat{animation:pop .35s ease-out}
+@keyframes slidein{from{transform:translateY(-12px);opacity:0}to{transform:none;opacity:1}}
+@keyframes stamp{0%{transform:scale(1.5);opacity:0}100%{transform:none;opacity:1}}
+@keyframes fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes hop{0%{transform:translateY(0)}40%{transform:translateY(-2px)}100%{transform:none}}
+@keyframes pop{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.ticket,.ticket.denied,.prep,.cust,.seat{animation:none}.prep{transform:none}}
+.ctl{display:flex;gap:8px;margin:6px 0}.ctl .btn{margin:0;width:auto;flex:1;padding:8px;font-size:12px}
+.m.wide{grid-column:1/-1}
+.ledger{margin:6px 0 0;padding:0;list-style:none;font-size:17px}.ledger li{display:flex;gap:8px;justify-content:space-between;border-top:1px dashed var(--line);padding:3px 0}.ledger .pts{white-space:nowrap}.pos{color:var(--ok)}.neg{color:var(--no)}
+.moodrow{display:flex;align-items:center;gap:10px}
