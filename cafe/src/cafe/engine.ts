@@ -88,10 +88,14 @@ export function hosted(): Engine {
     async load(p) { p(1, 'no download') },
     async reply() { throw new Error('use replyFor') },
     async replyFor(instructions, customerId) {
-      const r = await fetch('/api/cafe-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions, customerId }) })
-      const j = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(j.error || `server error ${r.status}`)
-      return j.reply as string
+      // The free tier has a per-minute limit. On a rate-limit answer, wait and retry a few times.
+      for (let attempt = 0; ; attempt++) {
+        const r = await fetch('/api/cafe-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions, customerId }) })
+        const j = await r.json().catch(() => ({}))
+        if (r.status === 429 && attempt < 3) { await new Promise((res) => setTimeout(res, 7000)); continue }
+        if (!r.ok) throw new Error(j.error || `server error ${r.status}`)
+        return j.reply as string
+      }
     },
   }
   return e
