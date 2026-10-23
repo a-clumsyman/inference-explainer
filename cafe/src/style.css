@@ -136,3 +136,11 @@ textarea:focus{outline:none;border-color:var(--acc)}
 .glow-cta{animation:ctapulse 1.4s ease-in-out infinite}
 @keyframes ctapulse{0%,100%{box-shadow:4px 4px 0 #0e0c13,0 0 0 0 rgba(232,163,61,.55)}50%{box-shadow:4px 4px 0 #0e0c13,0 0 0 7px rgba(232,163,61,0)}}
 @media (prefers-reduced-motion:reduce){.glow-cta,.maker.pop{animation:none}}
+.av .mo{opacity:0}
+.av.talk .mo{animation:talkblink .38s steps(1) infinite}
+@keyframes talkblink{0%,49%{opacity:1}50%,100%{opacity:0}}
+.av.pose-work .hands1,.av.pose-wave .arm1{animation:limba .45s steps(1) infinite}
+.av.pose-work .hands2,.av.pose-wave .arm2{animation:limbb .45s steps(1) infinite}
+@keyframes limba{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes limbb{0%,49%{opacity:0}50%,100%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.av.talk .mo,.av.pose-work .hands1,.av.pose-work .hands2,.av.pose-wave .arm1,.av.pose-wave .arm2{animation:none}.av.talk .mo{opacity:0}.av.pose-work .hands2,.av.pose-wave .arm2{opacity:0}}
