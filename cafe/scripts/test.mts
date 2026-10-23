@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { shiftChecker, check, leaked, parseReply, kitchen, bookingDesk, inventedPrices, score, wordCount, freshState } from '../src/cafe/check.ts'
-import { simulate, moodOf, runAt, customerAt } from '../src/cafe/sim.ts'
+import { simulate, moodOf, runAt, customerAt, moodGates } from '../src/cafe/sim.ts'
 import { buildEvidence, validateTips, redact } from '../src/cafe/coach.ts'
 import { gameOver, passMarkFor } from '../src/cafe/gameover.ts'
 import { POOL, pickShift, LEVELS, shiftFeasible } from '../src/cafe/data.ts'
@@ -236,4 +236,13 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
 t('pass rule: a full 8-customer shift keeps the 6-of-8 bar', passMarkFor(8) === 6)
 t('pass rule: short shifts scale but 0 right can never win', passMarkFor(2) === 1 && passMarkFor(1) === 1 && passMarkFor(3) === 1 && passMarkFor(4) === 2)
 t('pass rule: never zero or negative', [1,2,3,4,5,8,12].every((n) => passMarkFor(n) >= 1))
+
+// Phase 2: pacing gates
+{
+  const evs = simulate([c('r1'), c('r2')], ['Sure\nACTION: ORDER latte x1, croissant x1', 'Sure\nACTION: ORDER cappuccino x2']).events
+  const g = moodGates(evs)
+  const moodIdx = evs.map((e, i) => [e.kind, i] as const).filter(([k]) => k === 'mood').map(([, i]) => i)
+  t('gates sit just past each mood event', moodIdx.length === 2 && moodIdx.every((i) => g.has(i + 1)) && g.size === 2)
+  t('no gate on other events', !g.has(0) && !g.has(moodIdx[0]))
+}
 process.exit(fails ? 1 : 0)
