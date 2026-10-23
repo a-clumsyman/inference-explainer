@@ -173,7 +173,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
   const go = useMemo(() => gameOver(sim, (level.n ?? 1) - 1), [sim, level])
   return (
     <section className="card">
-      <h1 className={finished ? (sc.won ? 'win' : 'lose') : ''}>{finished ? (sc.won ? 'Shift survived' : 'Shift failed') : 'Replaying the shift'} <small>{level.title}</small></h1>
+      <h1 className={finished ? (sc.won ? 'win' : 'lose') : ''}>{finished ? (go.over ? 'Shift closed early' : sc.won ? 'Shift survived' : 'Below the pass mark') : 'Replaying the shift'} <small>{level.title}</small></h1>
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
       {finished && go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} (at customer {go.at} of {sc.total})</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
       {finished && go.warn && <p className="warnline">Warning: {go.reason} From Day 2 this closes the shift.</p>}
@@ -200,7 +200,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
           {!esc.reply && !esc.err && <button className="btn ghost" disabled={esc.busy} onClick={escalate}>{esc.busy ? 'Customer waiting...' : 'Hear the AI answer'}</button>}
           {esc.err && <p className="bad">{esc.err}</p>}
           {esc.reply && <><div className="l2">AI said: {esc.reply}</div><div className="l2"><b>Kitchen got:</b> {esc.sent}</div>
-            <p className={esc.ok ? 'pos' : 'neg'}>{esc.ok ? 'Calmer: what reached the kitchen was valid.' : 'Still angry. Chef: NOT AGAIN!'}</p>
+            <p className={esc.ok ? 'pos' : 'neg'}>{esc.ok ? 'Calmer: what reached the kitchen was valid.' : esc.sent === '(nothing)' ? 'Nothing reached the kitchen: no ACTION line. The words may be fine, but the kitchen cannot hear them.' : 'Still angry. Chef: NOT AGAIN!'}</p>
             <p className="small">Follow-up only: checked against the café as the shift ended. Nothing is placed and the original ticket is unchanged. It checks what would reach the kitchen, not how kind the words are.</p></>}
         </div>
       )}
