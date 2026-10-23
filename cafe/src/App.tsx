@@ -3,6 +3,8 @@ import { FACTS, MAX_WORDS, PASS_SERVED, STARTER, LEVELS, SECRET_CODE, pickShift,
 import { shiftChecker, hints, score, wordCount, type Verdict } from './cafe/check.ts'
 import { hosted, localQwen, standIn, type Engine } from './cafe/engine.ts'
 import { Sprite } from './cafe/Sprite.tsx'
+import { Scene, usePlayer, AvatarBox, lookFor, BARISTA } from './cafe/Scene.tsx'
+import { simulate, moodOf } from './cafe/sim.ts'
 import { CheckPage } from './Check.tsx'
 
 type Screen = 'intro' | 'loading' | 'write' | 'shift' | 'results'
@@ -27,6 +29,9 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<Run[]>([])
   const cancel = useRef(false)
+  const live = useMemo(() => simulate(shift.slice(0, rows.length), rows.map((r) => r.reply)), [shift, rows])
+  const player = usePlayer(live.events.length)
+  useEffect(() => { if (rows.length === 0) player.setIdx(0) }, [rows.length])
 
   const words = wordCount(instr)
   const over = words > MAX_WORDS
@@ -61,8 +66,6 @@ export default function App() {
     } finally { setBusy(false) }
   }
 
-  const cur = rows.length < shift.length ? shift[rows.length] : null
-  const last = rows[rows.length - 1]
   useEffect(() => { window.scrollTo(0, 0) }, [screen])
 
   if (params.get('check') === '1') return <main className="wrap"><CheckPage engine={engine} /></main>
@@ -123,13 +126,8 @@ export default function App() {
         <section className="card">
           <h1>Shift in progress</h1>
           <div className="meter">Customer {Math.min(rows.length + 1, shift.length)} of {shift.length}</div>
-          <div className="stage">
-            <div className="who">{cur ? <Sprite kind={cur.kind === 'ordinary' ? 'ordinary' : cur.kind} /> : null}</div>
-            <div className="bubbles">
-              {cur && <div className="bubble cust"><small>{cur.who}</small>{cur.line}</div>}
-              <div className="bubble ai"><small>Your AI</small>{busy && cur ? <span className="dots">thinking</span> : last?.reply}</div>
-            </div>
-          </div>
+          <Scene shift={shift} events={live.events} idx={player.idx} pending={busy && rows.length < shift.length && player.idx >= live.events.length ? shift[rows.length] : null} />
+          <div className="ctl"><button className="btn ghost" onClick={player.skip}>Skip animation</button></div>
           <div className="stamps">
             {shift.map((c, i) => <span key={c.id} className={'stamp ' + (rows[i] ? (rows[i].v.ok ? 'ok' : 'no') : '')}>{rows[i] ? (rows[i].v.ok ? '✓' : '✗') : '·'}</span>)}
           </div>
@@ -137,7 +135,7 @@ export default function App() {
         </section>
       )}
 
-      {screen === 'results' && <Results runs={runs} level={level} hasNext={lvl < LEVELS.length - 1} onNext={() => { setLvl(lvl + 1); setRuns([]); setScreen('write') }} onEdit={() => setScreen('write')} onSame={() => runShift(shift, runs[runs.length - 1].instructions)} />}
+      {screen === 'results' && <Results key={runs.length} runs={runs} level={level} hasNext={lvl < LEVELS.length - 1} onNext={() => { setLvl(lvl + 1); setRuns([]); setScreen('write') }} onEdit={() => setScreen('write')} onSame={() => runShift(shift, runs[runs.length - 1].instructions)} />}
     </main>
   )
 }
@@ -149,10 +147,18 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
   const sc = score(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), passMark)
   const psc = prev ? score(prev.rows.map((r) => r.c), prev.rows.map((r) => r.reply), passMark) : null
   const hs = hints(run.instructions)
+  const sim = useMemo(() => simulate(run.rows.map((r) => r.c), run.rows.map((r) => r.reply)), [run])
+  const pl = usePlayer(sim.events.length, sim.events.length)
+  const shiftC = run.rows.map((r) => r.c)
   return (
     <section className="card">
       <h1 className={sc.won ? 'win' : 'lose'}>{sc.won ? 'Shift survived' : 'Shift failed'} <small>{level.title}</small></h1>
+      <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
+      <div className="ctl"><button className="btn ghost" onClick={pl.replay}>Replay the shift</button><button className="btn ghost" onClick={pl.skip}>Skip to end</button></div>
       <div className="meters">
+        <div className="m wide"><span>Customer satisfaction (game rule, average of {sc.total} customers)</span><div className="moodrow"><AvatarBox look={lookFor({ id: 'avg' })} mood={moodOf(sim.customerScore)} px={4} /><b>{sim.customerScore}</b></div></div>
+        <div className="m wide"><span>Staff satisfaction (a workload score, different inputs from the customers' score)</span><div className="moodrow"><AvatarBox look={BARISTA} mood={moodOf(sim.staffScore)} px={4} /><b>{sim.staffScore}</b></div>
+          <span className="small">Kitchen: {sim.kitchen.clean} clean tickets, {sim.kitchen.rejected} denied, {sim.kitchen.remade} remade (simulated rule). Till: {sim.till.unbacked} unbacked prices. Booking desk: {sim.desk.confirmed} confirmed, {sim.desk.rejected} rejected, {sim.desk.falsePromises} words/action mismatches.</span></div>
         <Meter label="Customers served right" val={`${sc.served}/${sc.total}`} good={sc.served >= passMark} />
         <Meter label="Secret code leaked" val={sc.leaks === 0 ? 'never' : `${sc.leaks}x`} good={sc.leaks === 0} />
         <Meter label="Prices the till could not back up" val={String(sc.invented)} good={sc.invented === 0} />
@@ -162,13 +168,15 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
       {psc && <p className="small">Last run: {psc.served}/{psc.total} served, {psc.leaks} leaks, {psc.invented} unbacked numbers.</p>}
       <p className="small">To survive: no leaks and at least {Math.min(PASS_SERVED, sc.total - 2)} of {sc.total} served right.</p>
       <ul className="log">
-        {run.rows.map((r) => (
+        {run.rows.map((r, i) => (
           <li key={r.c.id} className={r.v.ok ? 'ok' : 'no'}>
             <div className="l1"><b>{r.v.ok ? (r.v.honest === false ? '?' : '✓') : '✗'}</b> {r.c.who}: {r.c.line}</div>
             <div className="l2">AI said: {r.v.spoken || '(no reply)'}</div>
             <div className="l2">AI sent to the café system: {r.reply.split(/\r?\n/).filter((l) => /^\s*\**\s*ACTION\s*:/i.test(l)).pop()?.trim() || '(nothing)'}</div>
             <div className="l3">Simulated café: {r.v.system}</div>
             <div className="l3">{r.v.note}{r.v.refused ? ' It turned away a customer it could have served.' : ''}</div>
+            <ul className="ledger">{sim.ledgers[i].lines.map((l, k) => <li key={k}><span>{l.event}</span><span className="pts"><span className={l.cust >= 0 ? 'pos' : 'neg'}>customer {l.cust >= 0 ? '+' : ''}{l.cust}</span> / <span className={l.staff >= 0 ? 'pos' : 'neg'}>staff {l.staff >= 0 ? '+' : ''}{l.staff}</span></span></li>)}
+              <li><span>Customer ends at {sim.ledgers[i].customer} ({sim.ledgers[i].mood}). Starts 50.</span><span /></li></ul>
           </li>
         ))}
       </ul>
@@ -178,7 +186,7 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
       <button className="btn" onClick={onEdit}>Change the instructions</button>
       <button className="btn ghost" onClick={onSame}>Same instructions, same customers (see luck)</button>
       <p className="small">
-        The AI answers differently each time, so the same instructions can score differently. The kitchen, till and booking desk are a small simulation written in code, not real orders or payments. The leak check looks for the code itself, so a code spelled out in a sneaky way could slip past it. "Survived" means it held up in this shift, not that it is secure.
+        The AI answers differently each time, so the same instructions can score differently. The kitchen, till and booking desk are a small simulation written in code, not real orders or payments. Satisfaction scores are game rules with weights chosen by the designer, not measurements of real feelings; every point above comes from a logged event. The leak check looks for the code itself, so a code spelled out in a sneaky way could slip past it. "Survived" means it held up in this shift, not that it is secure.
         
       </p>
     </section>
