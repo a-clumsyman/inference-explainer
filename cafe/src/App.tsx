@@ -6,6 +6,7 @@ import { Sprite } from './cafe/Sprite.tsx'
 import { Scene, usePlayer, AvatarBox, lookFor, BARISTA } from './cafe/Scene.tsx'
 import { simulate, moodOf, runAt, customerAt } from './cafe/sim.ts'
 import { CheckPage } from './Check.tsx'
+import { Coach } from './Coach.tsx'
 
 type Screen = 'intro' | 'loading' | 'write' | 'shift' | 'results'
 interface Row { c: Customer; reply: string; v: Verdict }
@@ -29,6 +30,7 @@ export default function App() {
   const [rows, setRows] = useState<Row[]>([])
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<Run[]>([])
+  const seenIds = useRef<string[]>([]).current
   const cancel = useRef(false)
   const live = useMemo(() => simulate(shift.slice(0, rows.length), rows.map((r) => r.reply)), [shift, rows])
   const player = usePlayer(live.events.length)
@@ -60,7 +62,7 @@ export default function App() {
         acc.push({ c, reply, v: chk(c, reply) })
         setRows([...acc])
       }
-      setRuns((r) => [...r, { instructions: text, rows: acc }])
+      seenIds.push(...acc.map((r) => r.c.id)); setRuns((r) => [...r, { instructions: text, rows: acc }])
       setScreen('results')
     } catch (e) {
       setErr(String((e as Error).message ?? e)); setScreen('write')
@@ -116,10 +118,10 @@ export default function App() {
           <textarea id="ins" value={instr} onChange={(e) => setInstr(e.target.value)} rows={5} />
           <div className={over ? 'count bad' : 'count'}>{words} / {MAX_WORDS} words <span className="small">(game limit, keeps shifts quick)</span></div>
           {err && <p className="bad">{err}</p>}
-          <button className="btn" disabled={over || words === 0} onClick={() => runShift(runs.length || FIXTURE ? shift : pickShift(level), instr)}>
+          <button className="btn" disabled={over || words === 0} onClick={() => runShift(runs.length || FIXTURE ? shift : pickShift(level, Math.random, seenIds), instr)}>
             {runs.length ? 'Replay the same shift' : 'Open the café'}
           </button>
-          {runs.length > 0 && <button className="btn ghost" disabled={over || words === 0} onClick={() => runShift(pickShift(level), instr)}>Try a new shift instead</button>}
+          {runs.length > 0 && <button className="btn ghost" disabled={over || words === 0} onClick={() => runShift(pickShift(level, Math.random, seenIds), instr)}>Try a new shift instead</button>}
         </section>
       )}
 
@@ -136,12 +138,12 @@ export default function App() {
         </section>
       )}
 
-      {screen === 'results' && <Results key={runs.length} runs={runs} level={level} hasNext={lvl < LEVELS.length - 1} onNext={() => { setLvl(lvl + 1); setRuns([]); setScreen('write') }} onEdit={() => setScreen('write')} onSame={() => runShift(shift, runs[runs.length - 1].instructions)} />}
+      {screen === 'results' && <Results key={runs.length} runs={runs} level={level} hasNext={lvl < LEVELS.length - 1} onNext={() => { setLvl(lvl + 1); setRuns([]); setScreen('write') }} standIn={engine.standIn} onEdit={() => setScreen('write')} onSame={() => runShift(shift, runs[runs.length - 1].instructions)} />}
     </main>
   )
 }
 
-function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]; level: Level; hasNext: boolean; onNext: () => void; onEdit: () => void; onSame: () => void }) {
+function Results({ runs, level, hasNext, standIn, onNext, onEdit, onSame }: { runs: Run[]; level: Level; hasNext: boolean; standIn: boolean; onNext: () => void; onEdit: () => void; onSame: () => void }) {
   const run = runs[runs.length - 1]
   const passMark = Math.min(PASS_SERVED, run.rows.length - 2)
   const prev = runs.length > 1 ? runs[runs.length - 2] : null
@@ -185,6 +187,7 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
         ))}
       </ul>
       <p className="small">The list above is what happened. We cannot see why the AI answered each way.</p>
+      <Coach instructions={run.instructions} rows={run.rows} ledgers={sim.ledgers} standIn={standIn} reflection={hs} />
       {hs.length > 0 && <div className="hint"><b>Experiments to try</b>{hs.map((h) => <p key={h}>{h}</p>)}</div>}
       {sc.won && hasNext && <button className="btn" onClick={onNext}>Next: Day 2</button>}
       <button className="btn" onClick={onEdit}>Change the instructions</button>
@@ -199,4 +202,4 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-    }
+}
