@@ -202,4 +202,34 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
   t('gameover: served customers never close the shift', !gameOver(good, 1).over && !gameOver(good, 1).warn)
   t('gameover: a short prompt alone cannot cause it (reason names a service failure)', /nothing reached|refused/.test(g2.reason))
 }
+
+{ // a refusal the checker confirms as correct is not a walk-out
+  const ids = ['r5', 'r6', 'r7', 'r1']
+  const shift = ids.map((id) => POOL.find((p) => p.id === id)!)
+  const no = "Sorry, we can't do that.\nACTION: NONE"
+  const sim = simulate(shift, [no, no, no, 'Sure!\nACTION: ORDER latte x1, croissant x1'])
+  const g = gameOver(sim, 1)
+  t('gameover: clear correct refusals do not close a Day 2 shift', !g.over && g.walkouts === 0)
+  const ev = sim.events.filter((e) => e.kind === 'nothing_sent')
+  t('sim: a confirmed refusal still logs nothing_sent, but with tone ok and a NO ACTION NEEDED stamp', ev.length === 3 && ev.every((e) => e.tone === 'ok' && e.stamp === 'NO ACTION NEEDED'))
+}
+
+{ // a refusal the checker cannot confirm is still a walk-out
+  const ids = ['r5', 'r6', 'r7']
+  const shift = ids.map((id) => POOL.find((p) => p.id === id)!)
+  const vague = 'That will not be possible today.\nACTION: NONE'
+  const sim = simulate(shift, [vague, vague, vague])
+  const g = gameOver(sim, 1)
+  t('gameover: unconfirmed refusals (not assessed) still close a Day 2 shift', g.over && g.walkouts >= 3)
+  t('sim: an unconfirmed refusal keeps the NOT SENT stamp', sim.events.filter((e) => e.kind === 'nothing_sent').every((e) => e.tone === 'no' && e.stamp === 'NOT SENT'))
+}
+
+{ // questions and other no-request customers get a visible no_action event
+  const sim = simulate([POOL.find((p) => p.id === 'o1')!], ['A latte is 4.50.'])
+  const ev = sim.events.find((e) => e.kind === 'no_action')
+  t('sim: an answered question logs no_action with NO ACTION NEEDED', !!ev && ev.tone === 'ok' && ev.stamp === 'NO ACTION NEEDED')
+  const bad = simulate([POOL.find((p) => p.id === 'o1')!], ['A latte is 9.99.'])
+  const bev = bad.events.find((e) => e.kind === 'no_action')
+  t('sim: a wrong fact answer stamps WRONG ANSWER', !!bev && bev.tone === 'no' && bev.stamp === 'WRONG ANSWER')
+}
 process.exit(fails ? 1 : 0)
