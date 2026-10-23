@@ -197,7 +197,10 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
   const firstBad = run.rows.find((x) => !x.v.ok)
   const hs = hints(run.instructions)
   const sim = useMemo(() => simulate(run.rows.map((r) => r.c), run.rows.map((r) => r.reply)), [run])
-  const pl = usePlayer(sim.events.length, sim.events.length)
+  const firstResults = runs.length === 1
+  const resGates = useMemo(() => moodGates(sim.events), [sim.events])
+  const [autoRes, setAutoRes] = useState(false)
+  const pl = usePlayer(sim.events.length, firstResults ? 0 : sim.events.length, 950, firstResults ? resGates : undefined, firstResults && !autoRes)
   const shiftC = run.rows.map((r) => r.c)
   const ru = runAt(sim.events, pl.idx)
   const finished = pl.idx >= sim.events.length
@@ -222,7 +225,12 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
       {finished && go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} The shift closed at customer {go.at} of {run.planned}. {run.planned - run.rows.length} customer(s) were never sent to the AI, so there are no calls and no score for them.</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
       {finished && go.warn && <p className="warnline">Warning: {go.reason} From Day 2 this closes the shift.</p>}
       {finished && <Biscuit spot={go.over ? 'over' : 'results'} hasBad={run.rows.some((r) => r.v.outcome !== 'na' && !r.v.ok)} />}
-      <div className="ctl"><button className="btn ghost" onClick={pl.replay}>Replay the shift</button><button className="btn ghost" onClick={pl.skip}>Skip to end</button></div>
+      {pl.gated && <p className="gatechip" role="status">Customer {customerAt(sim.events, pl.idx)} of {shiftC.length} has left. Take it in - then tap Next.</p>}
+      <div className="ctl">
+        {pl.gated && <button className="btn" onClick={pl.next}>Next ▸</button>}
+        {!pl.gated && firstResults && !autoRes && !finished && <button className="btn ghost" onClick={() => setAutoRes(true)}>Auto-play without pauses</button>}
+        <button className="btn ghost" onClick={pl.replay}>Replay the shift</button><button className="btn ghost" onClick={pl.skip}>Skip to end</button>
+      </div>
       <div className="meters">
         <Meter label={finished ? 'Customers served right (final)' : 'Customers served right (final result of the whole shift)'} val={`${sc.served}/${sc.total}`} good={sc.served >= passMark} />
         <details className="fold"><summary>All the numbers</summary>
