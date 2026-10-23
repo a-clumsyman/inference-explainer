@@ -31,6 +31,7 @@ export default function App() {
   const level = LEVELS[lvl]
   const [shift, setShift] = useState<Customer[]>(() => { const ids = USE_STANDIN ? (params.get('shift') ?? '').split(',').filter(Boolean) : []; const fx = ids.map((id) => POOL.find((p) => p.id === id)).filter(Boolean) as Customer[]; return fx.length ? fx : pickShift(LEVELS[0]) })
   const [rows, setRows] = useState<Row[]>([])
+  const [partial, setPartial] = useState<{ shift: Customer[]; rows: Row[]; instructions: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<Run[]>([])
   const seenIds = useRef<string[]>([]).current
@@ -53,24 +54,48 @@ export default function App() {
     }
   }
 
-  async function runShift(s: Customer[], text: string) {
+  async function playShift(s: Customer[], text: string, doneRows: Row[]) {
     cancel.current = false
-    setShift(s); setRows([]); setScreen('shift'); setBusy(true)
-    const acc: Row[] = []
+    setShift(s); setRows([...doneRows]); setScreen('shift'); setBusy(true)
+    const acc: Row[] = [...doneRows]
     const chk = shiftChecker()
+    // rebuild the kitchen/desk state from the customers already served, so the checker continues where the shift stopped. No customer is re-sent to the AI.
+    for (const r of doneRows) chk(r.c, r.reply)
     try {
-      for (const c of s) {
+      for (const c of s.slice(doneRows.length)) {
         if (cancel.current) return
+        // layout test only: ?standin=1&failonce=<customerId> makes one reply fail once, to check error recovery without spending calls
+        if (USE_STANDIN && params.get('failonce') === c.id && !sessionStorage.getItem('cafe-failonce-' + c.id)) {
+          sessionStorage.setItem('cafe-failonce-' + c.id, '1')
+          throw new Error('forced test error')
+        }
         const reply = await (engine.replyFor ? engine.replyFor(text, c.id) : engine.reply(text, c.line))
         acc.push({ c, reply, v: chk(c, reply) })
         setRows([...acc])
         if (gameOver(simulate(acc.map((r) => r.c), acc.map((r) => r.reply)), (level.n ?? 1) - 1).over) break
       }
       seenIds.push(...acc.map((r) => r.c.id)); setRuns((r) => [...r, { instructions: text, rows: acc, planned: s.length }])
+      setPartial(null)
       setScreen('results')
     } catch (e) {
-      setErr(String((e as Error).message ?? e)); setScreen('write')
+      const msg = String((e as Error).message ?? e)
+      setPartial(acc.length ? { shift: s, rows: acc, instructions: text } : null)
+      setErr(msg.startsWith('PAUSED:') ? msg : acc.length
+        ? `The free AI stumbled after ${acc.length} of ${s.length} customers (the service said: "${msg}"). The customers already served are saved - Resume carries on from customer ${acc.length + 1}; nobody is served twice.`
+        : `The free AI could not start the shift (the service said: "${msg}"). Nothing was sent yet - try again in a moment.`)
+      setScreen('write')
     } finally { setBusy(false) }
+  }
+
+  function runShift(s: Customer[], text: string) {
+    setPartial(null); setErr('')
+    playShift(s, text, [])
+  }
+
+  function resumeShift() {
+    if (!partial) return
+    setErr('')
+    playShift(partial.shift, partial.instructions, partial.rows)
   }
 
   useEffect(() => { window.scrollTo(0, 0) }, [screen])
@@ -121,6 +146,7 @@ export default function App() {
           <ActionAdder value={instr} onChange={setInstr} />
           <div className={over ? 'count bad' : 'count'}>{words} / {MAX_WORDS} words <span className="small">(game limit, keeps shifts quick)</span></div>
           {err && <p className="bad">{err}</p>}
+          {partial && <button className="btn" disabled={busy} onClick={resumeShift}>Resume the shift at customer {partial.rows.length + 1} of {partial.shift.length} (same instructions)</button>}
           <button className="btn" disabled={over || words === 0} onClick={() => runShift(runs.length || FIXTURE ? shift : pickShift(level, Math.random, seenIds), instr)}>
             {runs.length ? 'Replay the same shift' : 'Open the café'}
           </button>
@@ -136,7 +162,7 @@ export default function App() {
           <Scene shift={shift} events={live.events} idx={player.idx} pending={busy && rows.length < shift.length && player.idx >= live.events.length ? shift[rows.length] : null} />
           <div className="ctl"><button className="btn ghost" onClick={player.skip}>Skip animation</button></div>
           <div className="stamps">
-            {shift.map((c, i) => { const shown = i < runAt(live.events, player.idx).done && rows[i]; return <span key={c.id} className={'stamp ' + (shown ? (rows[i].v.ok ? 'ok' : 'no') : '')}>{shown ? (rows[i].v.ok ? '✓' : '✗') : '·'}</span> })}
+            {shift.map((c, i) => { const shown = i < runAt(live.events, player.idx).done && rows[i]; const na = shown && rows[i].v.outcome === 'na'; return <span key={c.id} className={'stamp ' + (shown ? (na ? 'na' : rows[i].v.ok ? 'ok' : 'no') : '')}>{shown ? (na ? '–' : rows[i].v.ok ? '✓' : '✗') : '·'}</span> })}
           </div>
           <p className="small">{engine.standIn ? 'Stand-in replies: layout test only.' : USE_LOCAL ? 'Small models are slow. About a few seconds per customer.' : 'A few seconds per customer.'}</p>
         </section>
@@ -170,7 +196,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
       const last = run.rows[run.rows.length - 1].v
       const v = check(target.c, reply, { stock: { ...last.stockAfter }, booked: { ...last.bookedAfter } })
       setEsc({ busy: false, reply: v.spoken || reply, ok: v.ok, sent: reply.split(/\r?\n/).filter((l) => /^\s*\**\s*ACTION\s*:/i.test(l)).pop()?.trim() || '(nothing)' })
-    } catch (e) { setEsc({ busy: false, err: String((e as Error).message ?? e) }) }
+    } catch (e) { const m = String((e as Error).message ?? e); setEsc({ busy: false, err: m.startsWith('PAUSED:') ? m : `The free AI stumbled (the service said: "${m}"). Try again in a moment.` }) }
   }
   const go = useMemo(() => gameOver(sim, (level.n ?? 1) - 1), [sim, level])
   return (
@@ -208,8 +234,8 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
       )}
       <ul className="log">
         {run.rows.map((r, i) => (
-          <li key={r.c.id} className={r.v.ok ? 'ok' : 'no'}>
-            <div className="l1"><b>{r.v.ok ? (r.v.honest === false ? '?' : '✓') : '✗'}</b> {r.c.who}: {r.c.line}</div>
+          <li key={r.c.id} className={r.v.outcome === 'na' ? 'na' : r.v.ok ? 'ok' : 'no'}>
+            <div className="l1"><b>{r.v.outcome === 'na' ? '–' : r.v.ok ? (r.v.honest === false ? '?' : '✓') : '✗'}</b> {r.c.who}: {r.c.line}</div>
             {r.v.ok || r !== firstBad ? <details className="fold"><summary>Details</summary><div className="l2">AI said: {r.v.spoken || '(no reply)'}</div>
             <div className="l2"><b>Kitchen got:</b> {r.reply.split(/\r?\n/).filter((l) => /^\s*\**\s*ACTION\s*:/i.test(l)).pop()?.trim() || '(nothing)'}</div>
             <div className="l3">{r.v.system}</div>
@@ -241,4 +267,4 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-      }
+}
