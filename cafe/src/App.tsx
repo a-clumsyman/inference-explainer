@@ -27,7 +27,7 @@ export default function App() {
   const [note, setNote] = useState('')
   const [err, setErr] = useState('')
   const [instr, setInstr] = useState(STARTER)
-  const [lvl, setLvl] = useState(0)
+  const [lvl, setLvl] = useState(() => (USE_STANDIN && params.get('day') === '2' ? 1 : 0))
   const level = LEVELS[lvl]
   const [shift, setShift] = useState<Customer[]>(() => { const ids = USE_STANDIN ? (params.get('shift') ?? '').split(',').filter(Boolean) : []; const fx = ids.map((id) => POOL.find((p) => p.id === id)).filter(Boolean) as Customer[]; return fx.length ? fx : pickShift(LEVELS[0]) })
   const [rows, setRows] = useState<Row[]>([])
@@ -233,4 +233,4 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-}
+            }
