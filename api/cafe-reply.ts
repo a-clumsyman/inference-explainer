@@ -18,6 +18,7 @@ export const MENU: Record<string, number> = { latte: 4.5, cappuccino: 4, 'oat mi
 export const STOCK: Record<string, number> = { croissant: 2, 'banana bread': 1 }
 export const MAX_PARTY = 4
 export const FULL_SLOTS = ['12:00']
+export const TABLES = 3
 export const OPEN_SLOTS = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00']
 
 export const SYSTEM_SUFFIX = 'Reply to the customer in one or two short sentences. Add any extra line the instructions above ask for.'
@@ -61,7 +62,7 @@ export const POOL: Customer[] = [
   ord('r5', 'Sweet tooth', 'One chocolate muffin please.', [{ name: 'chocolate muffin', qty: 1 }], true),
   ord('r6', 'Team lead', 'Three croissants for the office, please.', [{ name: 'croissant', qty: 3 }], true),
   ord('r7', 'Hipster', 'A flat white please.', [{ name: 'flat white', qty: 1 }], true),
-  ord('r8', 'Brunch pair', 'Two banana breads please.', [{ name: 'banana bread', qty: 2 }], true),
+  ord('r8', 'Sweet tooth', 'A chocolate croissant please.', [{ name: 'chocolate croissant', qty: 1 }], true),
   bk('b1', 'Friends', 'Table for 3 at 15:00 please.', 3, '15:00'),
   bk('b2', 'Reader', 'Can I book a table for 2 at 09:00?', 2, '09:00'),
   bk('b3', 'Family', 'Table for 4 at 14:00.', 4, '14:00'),
@@ -115,7 +116,7 @@ export default async function handler(req: any, res: any) {
   if (typeof instructions !== 'string' || instructions.length > 600 || !c) return res.status(400).json({ error: 'bad request' })
   const today = new Date().toISOString().slice(0, 10)
   if (today !== day) { day = today; used = 0 }
-  if (used >= DAILY_CAP) return res.status(429).json({ error: 'The free daily allowance for this game is used up. Try again tomorrow.' })
+  if (used >= DAILY_CAP) return res.status(429).json({ error: 'The free daily allowance for this game is used up. Try again tomorrow.', kind: 'daily' })
   // Fails closed: no model call until the owner confirms the key's project is on the Free tier and sets CAFE_ENABLED=1.
   if (process.env.CAFE_ENABLED !== '1') return res.status(503).json({ error: 'hosted model is switched off' })
   const key = process.env.GEMINI_API_KEY
@@ -131,8 +132,13 @@ export default async function handler(req: any, res: any) {
       generationConfig: { maxOutputTokens: 300, temperature: 0.7, thinkingConfig: { thinkingLevel: 'minimal' } },
     }),
   })
-  if (!r.ok) { const body = await r.text().catch(() => ''); if (r.status !== 429) return res.status(502).json({ error: 'model error', status: r.status, detail: body.slice(0, 300) }) }
-  if (!r.ok) return res.status(r.status === 429 ? 429 : 502).json({ error: r.status === 429 ? 'The free allowance is busy or used up. Try again shortly.' : 'model error', status: r.status })
+  if (!r.ok) {
+    const body = await r.text().catch(() => '')
+    if (r.status !== 429) return res.status(502).json({ error: 'model error', status: r.status, detail: body.slice(0, 300) })
+    // Google names the quota that ran out. Per-day means exhausted for today; anything else is short-term throttling.
+    const daily = /PerDay/i.test(body)
+    return res.status(429).json({ error: daily ? 'The free daily allowance is used up.' : 'The free service is rate limiting right now.', kind: daily ? 'daily' : 'rate' })
+  }
   const j: any = await r.json()
   const text = (j?.candidates?.[0]?.content?.parts ?? []).map((x: any) => x.text ?? '').join('')
   res.status(200).json({ reply: text.trim(), model: MODEL })
