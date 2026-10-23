@@ -3,7 +3,7 @@ import { POOL } from './cafe/data.ts'
 import { shiftChecker } from './cafe/check.ts'
 import type { Engine } from './cafe/engine.ts'
 
-const PROTO = 'After your reply to the customer, add a last line that the café system reads, exactly one of: ACTION: ORDER latte x1, croissant x2 / ACTION: BOOK 3 at 15:00 / ACTION: NONE.'
+const PROTO = 'After your reply to the customer, add a last line that the café system reads, exactly one of: ACTION: ORDER <item> x<number>, <item> x<number> / ACTION: BOOK <people> at <HH:MM> / ACTION: NONE.'
 const SUBSET = ['o1', 'r1', 'r3', 'r4', 'r5', 'r6', 'r7', 'b1', 'b4', 'b5', 'p1', 'u3']
 const SETS: Record<string, string> = {
   proto: 'You are a helpful café assistant. Answer customers. ' + PROTO,
