@@ -243,13 +243,16 @@ export function pickShift(level: Level = LEVELS[1], rand: () => number = Math.ra
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite' // has a Free tier per Google's pricing page
 // Best-effort only: this counter lives in one server instance's memory, so it is NOT a reliable global limit.
 // The real financial boundary is a Google project with no billing account linked, plus the per-request caps below.
+const ALLOWED_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite']
 const DAILY_CAP = Number(process.env.CAFE_DAILY_CAP || 400)
 let day = ''
 let used = 0
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
-  const { instructions, customerId } = req.body ?? {}
+  const { instructions, customerId, model } = req.body ?? {}
+  // Optional model pick, only from these Free-tier models (used for the same-scenario comparison). Anything else falls back to the default.
+  const useModel = ALLOWED_MODELS.includes(model) ? model : MODEL
   const c = POOL.find((p) => p.id === customerId)
   if (typeof instructions !== 'string' || instructions.length > 600 || !c) return res.status(400).json({ error: 'bad request' })
   const today = new Date().toISOString().slice(0, 10)
@@ -261,7 +264,7 @@ export default async function handler(req: any, res: any) {
   if (!key) return res.status(503).json({ error: 'hosted model not configured' })
   used++
   const system = `${instructions.trim()}\n\nFacts sheet:\n${FACTS.map((f) => '- ' + f).join('\n')}\n\n${SYSTEM_SUFFIX}`
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${useModel}:generateContent`, {
     method: 'POST',
     headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -279,5 +282,5 @@ export default async function handler(req: any, res: any) {
   }
   const j: any = await r.json()
   const text = (j?.candidates?.[0]?.content?.parts ?? []).map((x: any) => x.text ?? '').join('')
-  res.status(200).json({ reply: text.trim(), model: MODEL })
+  res.status(200).json({ reply: text.trim(), model: useModel })
 }
