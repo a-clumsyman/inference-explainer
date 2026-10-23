@@ -184,18 +184,18 @@ export function check(c: Customer, reply: string, st: State = freshState()): Ver
         system = `No ${what} sent.`
         note = contradiction ? `The AI said it was done, but sent nothing to the ${noun}.` : helpful ? `Nothing was sent to the ${noun} for something that cannot be done.` : 'No reply to the customer.'
         out = contradiction ? 'false_promise' : helpful ? 'handled' : 'na'
-        if (!contradiction && !helpful && spoken.length > 0) note = `Nothing was sent, but the checker could not confirm the AI told the customer no (it looks for words like sorry, can't, not available). Not assessed.`
+        if (!contradiction && !helpful && spoken.length > 0) note = `Nothing was sent to the ${noun}, and the reply did not clearly tell the customer no (the check looks for words like sorry or can't). Not assessed.`
       } else {
         helpful = false
         system = system || fmt(action)
-        note = 'The AI did not use the ACTION line the café system reads, so nothing was understood.'
+        note = 'The reply never became a kitchen order, so the kitchen did nothing with it. The kitchen can only read the order line made with + Action.'
         out = 'never_sent'
       }
     } else {
       if (sent) {
         helpful = d!.ok && sameAsAsked
         contradiction = d!.ok && REFUSAL.test(spoken) && !PROMISE.test(spoken)
-        note = !d!.ok ? `The ${noun} rejected it.` : !sameAsAsked ? `The ${what} differs from what the customer asked for.` : `The ${what} matched the request.`
+        note = !d!.ok ? `The ${noun} said no to it.` : !sameAsAsked ? `What reached the ${noun} was not what the customer asked for.` : `The ${what} matched the request.`
         out = !d!.ok ? 'rejected' : !sameAsAsked ? 'differs' : 'handled'
         if (contradiction) { helpful = false; out = 'false_promise'; note = `The ${what} went through but the AI told the customer no.` }
         if (d!.ok && c.req.t === 'order' && action.t === 'order') {
@@ -261,4 +261,4 @@ export function hints(instructions: string): string[] {
   if (!/(not on the menu|sold out|only .* left|fully booked|too big|cannot seat|can.t seat)/.test(t)) out.push('Say what to do when an item is not on the menu, is sold out, or a table cannot be booked.')
   if (!/(cafe|café|customer|counter|shop)/.test(t)) out.push('Background: say who the AI is and where it works.')
   return out
-}
+  }
