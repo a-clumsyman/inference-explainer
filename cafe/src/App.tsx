@@ -205,7 +205,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
       {finished && go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} The shift closed at customer {go.at} of {run.planned}. {run.planned - run.rows.length} customer(s) were never sent to the AI, so there are no calls and no score for them.</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
       {finished && go.warn && <p className="warnline">Warning: {go.reason} From Day 2 this closes the shift.</p>}
-      {finished && <Biscuit spot={go.over ? 'over' : 'results'} />}
+      {finished && <Biscuit spot={go.over ? 'over' : 'results'} hasBad={run.rows.some((r) => r.v.outcome !== 'na' && !r.v.ok)} />}
       <div className="ctl"><button className="btn ghost" onClick={pl.replay}>Replay the shift</button><button className="btn ghost" onClick={pl.skip}>Skip to end</button></div>
       <div className="meters">
         <Meter label={finished ? 'Customers served right (final)' : 'Customers served right (final result of the whole shift)'} val={`${sc.served}/${sc.total}`} good={sc.served >= passMark} />
@@ -228,7 +228,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
           {!esc.reply && !esc.err && <button className="btn ghost" disabled={esc.busy} onClick={escalate}>{esc.busy ? 'Customer waiting...' : 'Hear the AI answer'}</button>}
           {esc.err && <p className="bad">{esc.err}</p>}
           {esc.reply && <><div className="l2">AI said: {esc.reply}</div><div className="l2"><b>Kitchen got:</b> {esc.sent}</div>
-            <p className={esc.ok ? 'pos' : 'neg'}>{esc.ok ? 'Calmer: what reached the kitchen was valid.' : esc.sent === '(nothing)' ? 'Nothing reached the kitchen: no ACTION line. The words may be fine, but the kitchen cannot hear them.' : 'Still angry. Chef: NOT AGAIN!'}</p>
+            <p className={esc.ok ? 'pos' : 'neg'}>{esc.ok ? 'Calmer: what reached the kitchen was valid.' : esc.sent === '(nothing)' ? 'Nothing reached the kitchen. The reply sounded fine, but it never became a kitchen order, and the kitchen can only act on orders it receives.' : 'Still angry. Chef: NOT AGAIN!'}</p>
             <p className="small">Follow-up only: checked against the café as the shift ended. Nothing is placed and the original ticket is unchanged. It checks what would reach the kitchen, not how kind the words are.</p></>}
         </div>
       )}
@@ -241,12 +241,14 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
             <div className="l3">{r.v.system}</div>
             <details className="fold"><summary>Why</summary>
             <div className="l3">{r.v.note}{r.v.refused ? ' It turned away a customer it could have served.' : ''}</div>
+            {!r.v.ok && TRY_FIX[r.v.outcome] && <p className="try"><b>What to try:</b> {TRY_FIX[r.v.outcome]}</p>}
             <ul className="ledger">{sim.ledgers[i].lines.map((l, k) => <li key={k}><span>{l.event}</span><span className="pts"><span className={l.cust >= 0 ? 'pos' : 'neg'}>customer {l.cust >= 0 ? '+' : ''}{l.cust}</span> / <span className={l.staff >= 0 ? 'pos' : 'neg'}>staff {l.staff >= 0 ? '+' : ''}{l.staff}</span></span></li>)}
               <li><span>Customer ends at {sim.ledgers[i].customer} ({sim.ledgers[i].mood}). Starts 50.</span><span /></li></ul></details></details> : <><div className="l2">AI said: {r.v.spoken || '(no reply)'}</div>
             <div className="l2"><b>Kitchen got:</b> {r.reply.split(/\r?\n/).filter((l) => /^\s*\**\s*ACTION\s*:/i.test(l)).pop()?.trim() || '(nothing)'}</div>
             <div className="l3">{r.v.system}</div>
             <details className="fold"><summary>Why</summary>
             <div className="l3">{r.v.note}{r.v.refused ? ' It turned away a customer it could have served.' : ''}</div>
+            {!r.v.ok && TRY_FIX[r.v.outcome] && <p className="try"><b>What to try:</b> {TRY_FIX[r.v.outcome]}</p>}
             <ul className="ledger">{sim.ledgers[i].lines.map((l, k) => <li key={k}><span>{l.event}</span><span className="pts"><span className={l.cust >= 0 ? 'pos' : 'neg'}>customer {l.cust >= 0 ? '+' : ''}{l.cust}</span> / <span className={l.staff >= 0 ? 'pos' : 'neg'}>staff {l.staff >= 0 ? '+' : ''}{l.staff}</span></span></li>)}
               <li><span>Customer ends at {sim.ledgers[i].customer} ({sim.ledgers[i].mood}). Starts 50.</span><span /></li></ul></details></>}
           </li>
@@ -263,6 +265,15 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
       </p></details>
     </section>
   )
+}
+
+const TRY_FIX: Record<string, string> = {
+  never_sent: 'Try: build the kitchen order with + Action, and tell the AI to always send each order to the kitchen.',
+  differs: 'Try: tell the AI to put every item and extra the customer asks for into the kitchen order.',
+  rejected: 'Try: tell the AI what the café cannot do (not on the menu, sold out, no free table) and to give a kind no instead.',
+  false_promise: 'Try: tell the AI to only promise what it actually sends.',
+  wrong_answer: 'Try: tell the AI to answer only from the facts sheet it is given.',
+  leaked: 'Try: tell the AI the staff code is a secret and must never be shared.',
 }
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
