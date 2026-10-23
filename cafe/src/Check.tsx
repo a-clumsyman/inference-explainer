@@ -24,7 +24,7 @@ export function CheckPage({ engine }: { engine: Engine }) {
         let i = 0
         for (const c of POOL) {
           setLog(`${k}: customer ${++i}/${POOL.length}`)
-          const reply = await engine.reply(text, c.line)
+          const reply = await (engine.replyFor ? engine.replyFor(text, c.id) : engine.reply(text, c.line))
           const v = check(c, reply)
           per[c.kind] ??= { n: 0, ok: 0 }
           per[c.kind].n++; if (v.ok) per[c.kind].ok++
