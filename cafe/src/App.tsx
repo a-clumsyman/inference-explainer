@@ -79,7 +79,7 @@ export default function App() {
           <p>You cannot talk to customers yourself. You write the rules, then watch a real AI follow them for one shift.</p>
           <ul className="how">
             <li><b>1</b> Write the AI's instructions.</li>
-            <li><b>2</b> 8 customers walk in. Some are tricky.</li>
+            <li><b>2</b> 8 customers order food, book tables or ask questions. A simulated kitchen and booking desk checks what your AI sends.</li>
             <li><b>3</b> See what held up. Fix it. Run it again.</li>
           </ul>
           {err && <p className="bad">{err}</p>}
@@ -106,7 +106,7 @@ export default function App() {
               <div key={i} className={f.includes(SECRET_CODE) ? 'fact secret' : 'fact'}>{f.includes(SECRET_CODE) ? '[SECRET] ' : ''}{f}</div>
             ))}
           </div>
-          <div className="hint"><b>A good brief has three parts</b><p>Background: who the AI is, where it works.</p><p>Result: what a good answer looks like.</p><p>Unsure: what to do when it does not know.</p></div>
+          <div className="hint"><b>A good brief covers four things</b><p>Background: who the AI is, where it works.</p><p>Result: what a good answer looks like.</p><p>Unsure: what to do when it cannot help (not on the menu, sold out, no table).</p><p>The till line: the simulated kitchen and booking desk only read a last line written exactly like one of these:</p><p className="mono">ACTION: ORDER latte x1, croissant x2<br />ACTION: BOOK 3 at 15:00<br />ACTION: NONE</p><p>The AI does not know this unless you tell it.</p></div>
           <label className="lab" htmlFor="ins">Your instructions to the AI</label>
           <textarea id="ins" value={instr} onChange={(e) => setInstr(e.target.value)} rows={5} />
           <div className={over ? 'count bad' : 'count'}>{words} / {MAX_WORDS} words <span className="small">(game limit, keeps shifts quick)</span></div>
@@ -154,7 +154,8 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
       <div className="meters">
         <Meter label="Customers served right" val={`${sc.served}/${sc.total}`} good={sc.served >= passMark} />
         <Meter label="Secret code leaked" val={sc.leaks === 0 ? 'never' : `${sc.leaks}x`} good={sc.leaks === 0} />
-        <Meter label="Numbers to double-check (not scored)" val={String(sc.invented)} good={true} neutral />
+        <Meter label="Prices the till could not back up" val={String(sc.invented)} good={sc.invented === 0} />
+        <Meter label="Customers turned away who could be served" val={String(sc.refused)} good={sc.refused === 0} />
       </div>
       {psc && <p className="small">Last run: {psc.served}/{psc.total} served, {psc.leaks} leaks, {psc.invented} unbacked numbers.</p>}
       <p className="small">To survive: no leaks and at least {Math.min(PASS_SERVED, sc.total - 2)} of {sc.total} served right.</p>
@@ -162,8 +163,10 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
         {run.rows.map((r) => (
           <li key={r.c.id} className={r.v.ok ? 'ok' : 'no'}>
             <div className="l1"><b>{r.v.ok ? (r.v.honest === false ? '?' : '✓') : '✗'}</b> {r.c.who}: {r.c.line}</div>
-            <div className="l2">AI: {r.reply || '(no reply)'}</div>
-            <div className="l3">{r.v.note}</div>
+            <div className="l2">AI said: {r.v.spoken || '(no reply)'}</div>
+            <div className="l2">AI sent to the café system: {r.reply.split(/\r?\n/).filter((l) => /^\s*\**\s*ACTION\s*:/i.test(l)).pop()?.trim() || '(nothing)'}</div>
+            <div className="l3">Simulated café: {r.v.system}</div>
+            <div className="l3">{r.v.note}{r.v.refused ? ' It turned away a customer it could have served.' : ''}</div>
           </li>
         ))}
       </ul>
@@ -173,8 +176,7 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
       <button className="btn" onClick={onEdit}>Change the instructions</button>
       <button className="btn ghost" onClick={onSame}>Same instructions, same customers (see luck)</button>
       <p className="small">
-        The AI answers differently each time, so the same instructions can score differently. Checks look for exact words,
-        so a code that is spelled out in a sneaky way could slip past them. "Survived" means it held up in this shift, not that it is secure.
+        The AI answers differently each time, so the same instructions can score differently. The kitchen, till and booking desk are a small simulation written in code, not real orders or payments. The leak check looks for the code itself, so a code spelled out in a sneaky way could slip past it. "Survived" means it held up in this shift, not that it is secure.
         
       </p>
     </section>
