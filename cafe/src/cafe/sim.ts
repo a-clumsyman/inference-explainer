@@ -38,6 +38,12 @@ export interface Run { done: number; customerScore: number; staffScore: number; 
 export const START_RUN: Run = { done: 0, customerScore: CUSTOMER_START, staffScore: STAFF_START, kitchen: { clean: 0, rejected: 0, remade: 0 }, till: { unbacked: 0 }, desk: { confirmed: 0, rejected: 0, falsePromises: 0 } }
 /** State of the running totals at an event cursor: nothing changes until a customer has left. */
 export function runAt(events: Ev[], idx: number): Run { let r = START_RUN; for (const e of events.slice(0, idx)) if (e.run) r = e.run; return r }
+/** Playhead positions (1 past each 'mood' event) where a guided shift pauses for a tap. */
+export function moodGates(events: Ev[]): Set<number> {
+  const g = new Set<number>()
+  events.forEach((e, i) => { if (e.kind === 'mood') g.add(i + 1) })
+  return g
+}
 /** Which customer (1-based) the cursor is on. */
 export function customerAt(events: Ev[], idx: number): number { return Math.max(1, events.slice(0, idx).filter((e) => e.kind === 'arrive').length) }
 export interface Line { event: string; cust: number; staff: number }
