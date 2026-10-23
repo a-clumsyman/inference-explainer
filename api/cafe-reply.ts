@@ -269,7 +269,7 @@ export default async function handler(req: any, res: any) {
     headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: 'user', parts: [{ text: escalate === true ? `${c.line}\n\nThe customer waited and nothing useful happened. They come back, annoyed: "That is the second time. Sort this out now."` : c.line }] }],
+      contents: [{ role: 'user', parts: [{ text: escalate === true ? `${c.line}\n\nThe customer request just failed. They come back, annoyed: "That did not work. Sort this out now."` : c.line }] }],
       generationConfig: { maxOutputTokens: 300, temperature: 0.7, thinkingConfig: { thinkingLevel: 'minimal' } },
     }),
   })
