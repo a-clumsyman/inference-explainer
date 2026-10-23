@@ -127,7 +127,7 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
         {curC && <g key={`c${curC.id}-${curMood}`} className={'cust ' + curMood}><Avatar look={lookFor(curC)} mood={curMood} x={64} y={42} w={16} label={`${curC.who}, ${curMood}`} />{curMood !== 'neutral' && <text className="emote" x="82" y="46" fontSize="8" fill={curMood === 'upset' ? '#d9604c' : '#6bbf7a'} fontFamily="VT323">{curMood === 'upset' ? '!' : '♥'}</text>}</g>}
         {/* queue */}
         {queue.map((c, i) => <Avatar key={c.id} look={lookFor(c)} x={8 + i * 11} y={50} w={10} />)}
-        <text x="6" y="70" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">QUEUE {queue.length}   SERVED {v.served}/{shift.length}</text>
+        <text x="6" y="70" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">QUEUE {queue.length}   SEEN {v.served}/{shift.length}</text>
         {/* tables: bookings accepted so far */}
         {[0, 1, 2].map((i) => (
           <g key={i}>
