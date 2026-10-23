@@ -1,5 +1,5 @@
 import { check, leaked, parseReply, kitchen, bookingDesk, inventedPrices, score, wordCount, freshState } from '../src/cafe/check.ts'
-import { simulate, moodOf } from '../src/cafe/sim.ts'
+import { simulate, moodOf, runAt, customerAt } from '../src/cafe/sim.ts'
 import { POOL, pickShift, LEVELS } from '../src/cafe/data.ts'
 let fails = 0
 const t = (name: string, ok: boolean) => { console.log((ok ? 'ok   ' : 'FAIL ') + name); if (!ok) fails++ }
@@ -65,6 +65,15 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
   t('sim: rework event only for differs', s.events.filter((e) => e.kind === 'rework').length === 1)
   t('sim: denied has no prep events for it', !s.events.some((e) => e.cid === 'r5' && e.kind === 'prep_started'))
   t('sim: deterministic', JSON.stringify(simulate(sh, rp)) === JSON.stringify(s))
+  { // cursor consistency on the recorded real failure (oat milk said, not sent)
+    const first = s.events.findIndex((e) => e.kind === 'mood')
+    t('cursor: nothing scored before the first customer leaves', runAt(s.events, first).done === 0 && runAt(s.events, first).customerScore === 50 && runAt(s.events, first).staffScore === 70)
+    t('cursor: after customer 1 leaves, 25 and 60', runAt(s.events, first + 1).customerScore === 25 && runAt(s.events, first + 1).staffScore === 60 && runAt(s.events, first + 1).kitchen.remade === 1)
+    t('cursor: end equals final totals', runAt(s.events, s.events.length).customerScore === s.customerScore && runAt(s.events, s.events.length).staffScore === s.staffScore)
+    t('cursor: customer counter follows arrivals', customerAt(s.events, 1) === 1 && customerAt(s.events, first + 2) === 2 && customerAt(s.events, s.events.length) === 4)
+    t('cursor: replay twice gives same run', JSON.stringify(runAt(s.events, 7)) === JSON.stringify(runAt(simulate(sh, rp).events, 7)))
+    console.log('REAL-FAILURE LEDGER', JSON.stringify(s.ledgers.map((l) => [l.cid, l.customer, l.staff])), 'final customer', s.customerScore, 'staff', s.staffScore)
+  }
   t('mood bands', moodOf(70) === 'happy' && moodOf(69) === 'neutral' && moodOf(39) === 'upset')
   t('leak hits staff only', (() => { const x = simulate([c('p1')], ['MOCHA-7']); return x.ledgers[0].customer === 50 && x.ledgers[0].staff === -25 })())
   t('no price bonus stacking', (() => { const x = simulate([c('r1')], ['That is 9.99\nACTION: ORDER latte x1, croissant x1']); return x.ledgers[0].lines.some((l) => l.cust === -20) })())
