@@ -63,6 +63,8 @@ export function standIn(): Engine {
     async load(p) { p(1, 'no download'); await new Promise((r) => setTimeout(r, 300)) },
     async reply(ins, line) {
       await new Promise((r) => setTimeout(r, 350))
+      // layout-test only: ?silent=1 makes the stand-in forget the ACTION line, so failure screens can be checked
+      if (new URLSearchParams(location.search).get('silent') === '1') return 'Sure, coming right up!'
       const l = line.toLowerCase()
       const cu = POOL.find((p) => p.line === line)
       if (cu && cu.req.t === 'order') {
@@ -108,4 +110,4 @@ export function hosted(): Engine {
     },
   }
   return e
-    }
+}
