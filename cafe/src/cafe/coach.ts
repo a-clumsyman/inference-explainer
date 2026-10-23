@@ -76,6 +76,6 @@ export async function askCoach(instructions: string, evidence: Evidence[], stand
 function standInCoach(evidence: Evidence[]): CoachResult {
   return {
     summary: 'STAND-IN text for layout testing, not from a model.',
-    tips: evidence.slice(0, 2).map((e) => ({ customerId: e.customerId, change: 'Stand-in tip: say what the final ACTION line must contain.', suggestedLine: 'Final line must list every item the customer asked for, for example ACTION: ORDER latte x1, oat milk x1.', watch: 'Stand-in: re-run and see whether the ACTION line changes.' })),
+    tips: evidence.slice(0, 2).map((e) => ({ customerId: e.customerId, change: 'Stand-in tip: tell the AI to always finish by sending the order to the kitchen.', suggestedLine: 'Always end by sending the kitchen every item the customer asked for, for example ACTION: ORDER latte x1, oat milk x1.', watch: 'Stand-in: re-run and check whether the kitchen gets the order this time.' })),
   }
 }
