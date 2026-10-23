@@ -43,3 +43,4 @@ textarea:focus{outline:none;border-color:var(--acc)}
 .hint{border:4px dashed var(--acc);padding:8px 12px;margin:12px 0}
 @media(max-width:420px){body{font-size:20px}.meters{grid-template-columns:1fr}.m span{min-height:0}}
 .m.neutral b{color:var(--acc)}
+.mono{font-family:monospace;background:#0003;padding:6px;margin:4px 0}
