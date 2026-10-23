@@ -83,3 +83,5 @@ textarea:focus{outline:none;border-color:var(--acc)}
 .chef.angry{animation:shake .3s 2}.chefsay{animation:pop .25s ease-out}.emote{animation:pop .3s ease-out}.cust.upset{animation:shake .3s 2}.cust.happy{animation:hop .45s ease-out}
 @keyframes shake{25%{transform:translateX(-1px)}75%{transform:translateX(1px)}}
 @media (prefers-reduced-motion:reduce){.steam,.glow,.chef.angry,.chefsay,.emote,.cust.upset,.cust.happy{animation:none}}
+
+.esc{border:4px solid var(--no);padding:8px 12px;margin:10px 0;background:#241a22}.esc p{margin:6px 0}.esc .btn{margin:6px 0}
