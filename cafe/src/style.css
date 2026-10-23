@@ -85,3 +85,5 @@ textarea:focus{outline:none;border-color:var(--acc)}
 @media (prefers-reduced-motion:reduce){.steam,.glow,.chef.angry,.chefsay,.emote,.cust.upset,.cust.happy{animation:none}}
 
 .esc{border:4px solid var(--no);padding:8px 12px;margin:10px 0;background:#241a22}.esc p{margin:6px 0}.esc .btn{margin:6px 0}
+
+.adder-box .mono{font-size:15px;line-height:1.35}
