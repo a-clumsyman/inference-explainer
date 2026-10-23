@@ -35,7 +35,7 @@ export function Coach({ instructions, rows, ledgers, standIn, reflection }: { in
             const e = evidence.find((x) => x.customerId === t.customerId)!
             return (
               <div className="tip" key={t.customerId}>
-                <div className="small"><b>What happened ({e.who}):</b> asked "{e.line}". AI said: {e.reply.split(/\r?\n/).join(' / ').slice(0, 200)}. Café system: {e.system} {e.note} (observed, from the game's checks)</div>
+                <div className="small"><b>What happened ({e.who}):</b> the customer asked "{e.line}". The AI replied: {e.reply.split(/\r?\n/).join(' / ').slice(0, 200)}. The café did: {e.system} {e.note} (what the game observed)</div>
                 <p><b>Experiment to try:</b> {t.change}</p>
                 <p className="mono">Suggested wording (an idea, not tested): {t.suggestedLine}</p>
                 <p className="small"><b>What to watch when you re-run:</b> {t.watch}</p>
