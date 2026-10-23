@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { shiftChecker, check, leaked, parseReply, kitchen, bookingDesk, inventedPrices, score, wordCount, freshState } from '../src/cafe/check.ts'
 import { simulate, moodOf, runAt, customerAt } from '../src/cafe/sim.ts'
 import { buildEvidence, validateTips, redact } from '../src/cafe/coach.ts'
-import { gameOver } from '../src/cafe/gameover.ts'
+import { gameOver, passMarkFor } from '../src/cafe/gameover.ts'
 import { POOL, pickShift, LEVELS, shiftFeasible } from '../src/cafe/data.ts'
 let fails = 0
 const t = (name: string, ok: boolean) => { console.log((ok ? 'ok   ' : 'FAIL ') + name); if (!ok) fails++ }
@@ -232,4 +232,8 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
   const bev = bad.events.find((e) => e.kind === 'no_action')
   t('sim: a wrong fact answer stamps WRONG ANSWER', !!bev && bev.tone === 'no' && bev.stamp === 'WRONG ANSWER')
 }
+
+t('pass rule: a full 8-customer shift keeps the 6-of-8 bar', passMarkFor(8) === 6)
+t('pass rule: short shifts scale but 0 right can never win', passMarkFor(2) === 1 && passMarkFor(1) === 1 && passMarkFor(3) === 1 && passMarkFor(4) === 2)
+t('pass rule: never zero or negative', [1,2,3,4,5,8,12].every((n) => passMarkFor(n) >= 1))
 process.exit(fails ? 1 : 0)
