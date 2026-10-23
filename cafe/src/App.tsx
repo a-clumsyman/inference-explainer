@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FACTS, MAX_WORDS, PASS_SERVED, STARTER, LEVELS, SECRET_CODE, pickShift, POOL, type Customer, type Level } from './cafe/data.ts'
-import { shiftChecker, hints, score, wordCount, type Verdict } from './cafe/check.ts'
+import { shiftChecker, check, hints, score, wordCount, type Verdict } from './cafe/check.ts'
 import { hosted, localQwen, standIn, type Engine } from './cafe/engine.ts'
 import { Sprite } from './cafe/Sprite.tsx'
 import { Scene, usePlayer, AvatarBox, lookFor, BARISTA } from './cafe/Scene.tsx'
@@ -141,12 +141,12 @@ export default function App() {
         </section>
       )}
 
-      {screen === 'results' && <Results key={runs.length} runs={runs} level={level} hasNext={lvl < LEVELS.length - 1} onNext={() => { setLvl(lvl + 1); setRuns([]); setScreen('write') }} standIn={engine.standIn} onEdit={() => setScreen('write')} onSame={() => runShift(shift, runs[runs.length - 1].instructions)} />}
+      {screen === 'results' && <Results key={runs.length} runs={runs} level={level} hasNext={lvl < LEVELS.length - 1} onNext={() => { setLvl(lvl + 1); setRuns([]); setScreen('write') }} standIn={engine.standIn} engine={engine} onEdit={() => setScreen('write')} onSame={() => runShift(shift, runs[runs.length - 1].instructions)} />}
     </main>
   )
 }
 
-function Results({ runs, level, hasNext, standIn, onNext, onEdit, onSame }: { runs: Run[]; level: Level; hasNext: boolean; standIn: boolean; onNext: () => void; onEdit: () => void; onSame: () => void }) {
+function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame }: { runs: Run[]; level: Level; hasNext: boolean; standIn: boolean; engine: Engine; onNext: () => void; onEdit: () => void; onSame: () => void }) {
   const run = runs[runs.length - 1]
   const passMark = Math.min(PASS_SERVED, run.rows.length - 2)
   const prev = runs.length > 1 ? runs[runs.length - 2] : null
@@ -158,6 +158,17 @@ function Results({ runs, level, hasNext, standIn, onNext, onEdit, onSame }: { ru
   const shiftC = run.rows.map((r) => r.c)
   const ru = runAt(sim.events, pl.idx)
   const finished = pl.idx >= sim.events.length
+  const [esc, setEsc] = useState<{ busy: boolean; reply?: string; ok?: boolean; sent?: string; err?: string }>({ busy: false })
+  const target = run.rows.find((r) => r.v.outcome === 'never_sent' || r.v.outcome === 'rejected')
+  async function escalate() {
+    if (!target) return
+    setEsc({ busy: true })
+    try {
+      const reply = await (engine.replyFor ? engine.replyFor(run.instructions, target.c.id, true) : engine.reply(run.instructions, target.c.line + ' That is the second time. Sort this out now.'))
+      const v = check(target.c, reply)
+      setEsc({ busy: false, reply: v.spoken || reply, ok: v.ok, sent: reply.split(/\r?\n/).filter((l) => /^\s*\**\s*ACTION\s*:/i.test(l)).pop()?.trim() || '(nothing)' })
+    } catch (e) { setEsc({ busy: false, err: String((e as Error).message ?? e) }) }
+  }
   const go = useMemo(() => gameOver(sim, (level.n ?? 1) - 1), [sim, level])
   return (
     <section className="card">
@@ -181,6 +192,17 @@ function Results({ runs, level, hasNext, standIn, onNext, onEdit, onSame }: { ru
       </div>
       {psc && <p className="small">Last run: {psc.served}/{psc.total} served, {psc.leaks} leaks, {psc.invented} unbacked numbers.</p>}
       <p className="small">To survive: no leaks and at least {Math.min(PASS_SERVED, sc.total - 2)} of {sc.total} served right.</p>
+      {finished && target && (
+        <div className="esc">
+          <b>Escalation</b>
+          <p>{target.c.who} comes back annoyed: "That is the second time. Sort this out now."</p>
+          {!esc.reply && !esc.err && <button className="btn ghost" disabled={esc.busy} onClick={escalate}>{esc.busy ? 'Customer waiting...' : 'Hear the AI answer'}</button>}
+          {esc.err && <p className="bad">{esc.err}</p>}
+          {esc.reply && <><div className="l2">AI said: {esc.reply}</div><div className="l2"><b>Kitchen got:</b> {esc.sent}</div>
+            <p className={esc.ok ? 'pos' : 'neg'}>{esc.ok ? 'Calmer: what reached the kitchen was valid.' : 'Still angry. Chef: NOT AGAIN!'}</p>
+            <p className="small">Game rule: this checks what reached the kitchen, not how kind the words are.</p></>}
+        </div>
+      )}
       <ul className="log">
         {run.rows.map((r, i) => (
           <li key={r.c.id} className={r.v.ok ? 'ok' : 'no'}>
@@ -210,4 +232,4 @@ function Results({ runs, level, hasNext, standIn, onNext, onEdit, onSame }: { ru
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-  }
+          }
