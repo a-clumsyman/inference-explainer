@@ -4,14 +4,15 @@ import { shiftChecker, check, hints, score, wordCount, type Verdict } from './ca
 import { hosted, localQwen, standIn, type Engine } from './cafe/engine.ts'
 import { Sprite } from './cafe/Sprite.tsx'
 import { Scene, usePlayer, AvatarBox, lookFor, BARISTA } from './cafe/Scene.tsx'
-import { simulate, moodOf, runAt, customerAt } from './cafe/sim.ts'
+import { simulate, moodOf, runAt, customerAt, moodGates } from './cafe/sim.ts'
 import { CheckPage } from './Check.tsx'
 import { Coach } from './Coach.tsx'
 import { ActionAdder } from './ActionAdder.tsx'
 import { Biscuit } from './Biscuit.tsx'
 import { gameOver, passMarkFor } from './cafe/gameover.ts'
+import { Story } from './Story.tsx'
 
-type Screen = 'intro' | 'loading' | 'write' | 'shift' | 'results'
+type Screen = 'story' | 'intro' | 'loading' | 'write' | 'shift' | 'results'
 interface Row { c: Customer; reply: string; v: Verdict }
 interface Run { instructions: string; rows: Row[]; planned: number }
 
@@ -22,7 +23,9 @@ const USE_LOCAL = params.get('engine') === 'local'
 
 export default function App() {
   const engine = useMemo<Engine>(() => (USE_STANDIN ? standIn() : USE_LOCAL ? localQwen() : hosted()), [])
-  const [screen, setScreen] = useState<Screen>('intro')
+  const [screen, setScreen] = useState<Screen>(USE_STANDIN ? 'intro' : 'story')
+  const [guideOn, setGuideOn] = useState(true)
+  const [auto, setAuto] = useState(false)
   const [pct, setPct] = useState(0)
   const [note, setNote] = useState('')
   const [err, setErr] = useState('')
@@ -37,7 +40,8 @@ export default function App() {
   const seenIds = useRef<string[]>([]).current
   const cancel = useRef(false)
   const live = useMemo(() => simulate(shift.slice(0, rows.length), rows.map((r) => r.reply)), [shift, rows])
-  const player = usePlayer(live.events.length)
+  const gates = useMemo(() => moodGates(live.events), [live.events])
+  const player = usePlayer(live.events.length, 0, 950, gates, !(runs.length > 0 || auto))
   useEffect(() => { if (rows.length === 0) player.setIdx(0) }, [rows.length])
 
   const words = wordCount(instr)
@@ -108,6 +112,10 @@ export default function App() {
         <span className="tag">{engine.standIn ? 'STAND-IN, NOT A MODEL' : USE_LOCAL ? 'real AI, small and local' : 'real AI, hosted'}</span>
       </header>
 
+      {screen === 'story' && (
+        <Story startLabel={USE_LOCAL ? 'Start: download the AI (919 MB, once)' : 'Start'} onStart={start} />
+      )}
+
       {screen === 'intro' && (
         <section className="card">
           <div className="scene"><Sprite kind="barista" size={10} /><div className="counter" /></div>
@@ -129,6 +137,7 @@ export default function App() {
 
       {screen === 'write' && (
         <section className="card">
+          {guideOn && runs.length === 0 && <Guide step="STEP 1 OF 3" text="Write the AI's house rules below (the starter text works too). Then press OPEN THE CAFÉ." onSkip={() => setGuideOn(false)} />}
           <h1>{level.title}</h1>
           <p>{level.blurb.split('. ')[0].replace(/\.$/, '')}.</p>
           {level.blurb.includes('. ') && <details className="fold"><summary>More</summary><p>{level.blurb}</p></details>}
@@ -147,7 +156,7 @@ export default function App() {
           <div className={over ? 'count bad' : 'count'}>{words} / {MAX_WORDS} words <span className="small">(game limit, keeps shifts quick)</span></div>
           {err && <p className="bad">{err}</p>}
           {partial && <button className="btn" disabled={busy} onClick={resumeShift}>Resume the shift at customer {partial.rows.length + 1} of {partial.shift.length} (same instructions)</button>}
-          <button className="btn" disabled={over || words === 0} onClick={() => runShift(runs.length || FIXTURE ? shift : pickShift(level, Math.random, seenIds), instr)}>
+          <button className={guideOn && runs.length === 0 ? 'btn glow-cta' : 'btn'} disabled={over || words === 0} onClick={() => runShift(runs.length || FIXTURE ? shift : pickShift(level, Math.random, seenIds), instr)}>
             {runs.length ? 'Replay the same shift' : 'Open the café'}
           </button>
           {runs.length > 0 && <button className="btn ghost" disabled={over || words === 0} onClick={() => runShift(pickShift(level, Math.random, seenIds), instr)}>Try a new shift instead</button>}
@@ -160,7 +169,13 @@ export default function App() {
           <Biscuit spot="shift" />
           <div className="meter">Customer {Math.min(customerAt(live.events, player.idx), shift.length)} of {shift.length}</div>
           <Scene shift={shift} events={live.events} idx={player.idx} pending={busy && rows.length < shift.length && player.idx >= live.events.length ? shift[rows.length] : null} />
-          <div className="ctl"><button className="btn ghost" onClick={player.skip}>Skip animation</button></div>
+          {guideOn && runs.length === 0 && <Guide step="STEP 2 OF 3" text="Watch each beat: the customer speaks, your AI answers, the kitchen pass stamps what it actually got. The shift pauses after each customer - tap NEXT when you are ready." onSkip={() => setGuideOn(false)} />}
+          {player.gated && <p className="gatechip" role="status">Customer {customerAt(live.events, player.idx)} of {shift.length} has left. Take it in - then tap Next.</p>}
+          <div className="ctl">
+            {player.gated && <button className="btn" onClick={player.next}>Next ▸</button>}
+            {!player.gated && !auto && runs.length === 0 && <button className="btn ghost" onClick={() => setAuto(true)}>Auto-play without pauses</button>}
+            <button className="btn ghost" onClick={player.skip}>Skip animation</button>
+          </div>
           <div className="stamps">
             {shift.map((c, i) => { const shown = i < runAt(live.events, player.idx).done && rows[i]; const na = shown && rows[i].v.outcome === 'na'; return <span key={c.id} className={'stamp ' + (shown ? (na ? 'na' : rows[i].v.ok ? 'ok' : 'no') : '')}>{shown ? (na ? '–' : rows[i].v.ok ? '✓' : '✗') : '·'}</span> })}
           </div>
@@ -168,12 +183,12 @@ export default function App() {
         </section>
       )}
 
-      {screen === 'results' && <Results key={runs.length} runs={runs} level={level} hasNext={lvl < LEVELS.length - 1} onNext={() => { setLvl(lvl + 1); setRuns([]); setScreen('write') }} standIn={engine.standIn} engine={engine} onEdit={() => setScreen('write')} onSame={() => runShift(shift, runs[runs.length - 1].instructions)} />}
+      {screen === 'results' && <Results key={runs.length} runs={runs} level={level} guideOn={guideOn} onSkipGuide={() => setGuideOn(false)} hasNext={lvl < LEVELS.length - 1} onNext={() => { setLvl(lvl + 1); setRuns([]); setScreen('write') }} standIn={engine.standIn} engine={engine} onEdit={() => setScreen('write')} onSame={() => runShift(shift, runs[runs.length - 1].instructions)} />}
     </main>
   )
 }
 
-function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame }: { runs: Run[]; level: Level; hasNext: boolean; standIn: boolean; engine: Engine; onNext: () => void; onEdit: () => void; onSame: () => void }) {
+function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame, guideOn, onSkipGuide }: { runs: Run[]; level: Level; hasNext: boolean; standIn: boolean; engine: Engine; onNext: () => void; onEdit: () => void; onSame: () => void; guideOn: boolean; onSkipGuide: () => void }) {
   const run = runs[runs.length - 1]
   const passMark = passMarkFor(run.planned)
   const prev = runs.length > 1 ? runs[runs.length - 2] : null
@@ -201,6 +216,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
   const go = useMemo(() => gameOver(sim, (level.n ?? 1) - 1), [sim, level])
   return (
     <section className="card">
+      {guideOn && runs.length === 1 && finished && <Guide step="STEP 3 OF 3" text="Open a row marked ✗ to see what the kitchen got. AI HELP & TIPS explains it in plain words. Then CHANGE THE INSTRUCTIONS and replay - that is the game." onSkip={onSkipGuide} />}
       <h1 className={finished ? (sc.won ? 'win' : 'lose') : ''}>{finished ? (go.over ? 'Shift closed early' : sc.won ? 'Shift survived' : 'Below the pass mark') : 'Replaying the shift'} <small>{level.title}</small></h1>
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
       {finished && go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} The shift closed at customer {go.at} of {run.planned}. {run.planned - run.rows.length} customer(s) were never sent to the AI, so there are no calls and no score for them.</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
@@ -261,7 +277,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
       <button className="btn ghost" onClick={onSame}>Same instructions, same customers (see luck)</button>
       <details className="fold"><summary>How this works</summary><p className="small">
         The AI answers differently each time, so the same instructions can score differently. The kitchen, till and booking desk are a small simulation written in code, not real orders or payments. Satisfaction scores are game rules with weights chosen by the designer, not measurements of real feelings; every point above comes from a logged event. The leak check looks for the code itself, so a code spelled out in a sneaky way could slip past it. "Survived" means it held up in this shift, not that it is secure.
-        
+        Café food art: Kenney (kenney.nl), CC0.
       </p></details>
     </section>
   )
@@ -278,4 +294,14 @@ const TRY_FIX: Record<string, string> = {
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
+}
+
+function Guide({ step, text, onSkip }: { step: string; text: string; onSkip: () => void }) {
+  return (
+    <div className="guidebar" role="status">
+      <span className="gstep">{step}</span>
+      <span className="gtext">{text}</span>
+      <button type="button" className="mini" onClick={onSkip}>Skip tips</button>
+    </div>
+  )
 }
