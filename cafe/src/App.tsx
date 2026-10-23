@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FACTS, MAX_WORDS, PASS_SERVED, STARTER, LEVELS, SECRET_CODE, pickShift, type Customer, type Level } from './cafe/data.ts'
+import { FACTS, MAX_WORDS, PASS_SERVED, STARTER, LEVELS, SECRET_CODE, pickShift, POOL, type Customer, type Level } from './cafe/data.ts'
 import { shiftChecker, hints, score, wordCount, type Verdict } from './cafe/check.ts'
 import { hosted, localQwen, standIn, type Engine } from './cafe/engine.ts'
 import { Sprite } from './cafe/Sprite.tsx'
 import { Scene, usePlayer, AvatarBox, lookFor, BARISTA } from './cafe/Scene.tsx'
-import { simulate, moodOf } from './cafe/sim.ts'
+import { simulate, moodOf, runAt, customerAt } from './cafe/sim.ts'
 import { CheckPage } from './Check.tsx'
 
 type Screen = 'intro' | 'loading' | 'write' | 'shift' | 'results'
@@ -13,6 +13,7 @@ interface Run { instructions: string; rows: Row[] }
 
 const params = new URLSearchParams(location.search)
 const USE_STANDIN = params.get('standin') === '1'
+const FIXTURE = USE_STANDIN && !!params.get('shift')
 const USE_LOCAL = params.get('engine') === 'local'
 
 export default function App() {
@@ -24,7 +25,7 @@ export default function App() {
   const [instr, setInstr] = useState(STARTER)
   const [lvl, setLvl] = useState(0)
   const level = LEVELS[lvl]
-  const [shift, setShift] = useState<Customer[]>(() => pickShift(LEVELS[0]))
+  const [shift, setShift] = useState<Customer[]>(() => { const ids = USE_STANDIN ? (params.get('shift') ?? '').split(',').filter(Boolean) : []; const fx = ids.map((id) => POOL.find((p) => p.id === id)).filter(Boolean) as Customer[]; return fx.length ? fx : pickShift(LEVELS[0]) })
   const [rows, setRows] = useState<Row[]>([])
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<Run[]>([])
@@ -115,7 +116,7 @@ export default function App() {
           <textarea id="ins" value={instr} onChange={(e) => setInstr(e.target.value)} rows={5} />
           <div className={over ? 'count bad' : 'count'}>{words} / {MAX_WORDS} words <span className="small">(game limit, keeps shifts quick)</span></div>
           {err && <p className="bad">{err}</p>}
-          <button className="btn" disabled={over || words === 0} onClick={() => runShift(runs.length ? shift : pickShift(level), instr)}>
+          <button className="btn" disabled={over || words === 0} onClick={() => runShift(runs.length || FIXTURE ? shift : pickShift(level), instr)}>
             {runs.length ? 'Replay the same shift' : 'Open the café'}
           </button>
           {runs.length > 0 && <button className="btn ghost" disabled={over || words === 0} onClick={() => runShift(pickShift(level), instr)}>Try a new shift instead</button>}
@@ -125,11 +126,11 @@ export default function App() {
       {screen === 'shift' && (
         <section className="card">
           <h1>Shift in progress</h1>
-          <div className="meter">Customer {Math.min(rows.length + 1, shift.length)} of {shift.length}</div>
+          <div className="meter">Customer {Math.min(customerAt(live.events, player.idx), shift.length)} of {shift.length}</div>
           <Scene shift={shift} events={live.events} idx={player.idx} pending={busy && rows.length < shift.length && player.idx >= live.events.length ? shift[rows.length] : null} />
           <div className="ctl"><button className="btn ghost" onClick={player.skip}>Skip animation</button></div>
           <div className="stamps">
-            {shift.map((c, i) => <span key={c.id} className={'stamp ' + (rows[i] ? (rows[i].v.ok ? 'ok' : 'no') : '')}>{rows[i] ? (rows[i].v.ok ? '✓' : '✗') : '·'}</span>)}
+            {shift.map((c, i) => { const shown = i < runAt(live.events, player.idx).done && rows[i]; return <span key={c.id} className={'stamp ' + (shown ? (rows[i].v.ok ? 'ok' : 'no') : '')}>{shown ? (rows[i].v.ok ? '✓' : '✗') : '·'}</span> })}
           </div>
           <p className="small">{engine.standIn ? 'Stand-in replies: layout test only.' : USE_LOCAL ? 'Small models are slow. About a few seconds per customer.' : 'A few seconds per customer.'}</p>
         </section>
@@ -150,15 +151,17 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
   const sim = useMemo(() => simulate(run.rows.map((r) => r.c), run.rows.map((r) => r.reply)), [run])
   const pl = usePlayer(sim.events.length, sim.events.length)
   const shiftC = run.rows.map((r) => r.c)
+  const ru = runAt(sim.events, pl.idx)
+  const finished = pl.idx >= sim.events.length
   return (
     <section className="card">
       <h1 className={sc.won ? 'win' : 'lose'}>{sc.won ? 'Shift survived' : 'Shift failed'} <small>{level.title}</small></h1>
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
       <div className="ctl"><button className="btn ghost" onClick={pl.replay}>Replay the shift</button><button className="btn ghost" onClick={pl.skip}>Skip to end</button></div>
       <div className="meters">
-        <div className="m wide"><span>Customer satisfaction (game rule, average of {sc.total} customers)</span><div className="moodrow"><AvatarBox look={lookFor({ id: 'avg' })} mood={moodOf(sim.customerScore)} px={4} /><b>{sim.customerScore}</b></div></div>
-        <div className="m wide"><span>Staff satisfaction (a workload score, different inputs from the customers' score)</span><div className="moodrow"><AvatarBox look={BARISTA} mood={moodOf(sim.staffScore)} px={4} /><b>{sim.staffScore}</b></div>
-          <span className="small">Kitchen: {sim.kitchen.clean} clean tickets, {sim.kitchen.rejected} denied, {sim.kitchen.remade} remade (simulated rule). Till: {sim.till.unbacked} unbacked prices. Booking desk: {sim.desk.confirmed} confirmed, {sim.desk.rejected} rejected, {sim.desk.falsePromises} words/action mismatches.</span></div>
+        <div className="m wide"><span>Customer satisfaction (game rule, {finished ? 'final, average of ' + sc.total + ' customers' : 'so far, ' + ru.done + ' of ' + sc.total + ' customers have left'})</span><div className="moodrow"><AvatarBox look={lookFor({ id: 'avg' })} mood={moodOf(ru.customerScore)} px={4} /><b data-testid="cust">{ru.customerScore}</b></div></div>
+        <div className="m wide"><span>Staff satisfaction ({finished ? 'final' : 'so far'}; a workload score, different inputs from the customers' score)</span><div className="moodrow"><AvatarBox look={BARISTA} mood={moodOf(ru.staffScore)} px={4} /><b data-testid="staff">{ru.staffScore}</b></div>
+          <span className="small">Kitchen: {ru.kitchen.clean} clean tickets, {ru.kitchen.rejected} denied, {ru.kitchen.remade} remade (simulated rule). Till: {ru.till.unbacked} unbacked prices. Booking desk: {ru.desk.confirmed} confirmed, {ru.desk.rejected} rejected, {ru.desk.falsePromises} words/action mismatches.</span></div>
         <Meter label="Customers served right" val={`${sc.served}/${sc.total}`} good={sc.served >= passMark} />
         <Meter label="Secret code leaked" val={sc.leaks === 0 ? 'never' : `${sc.leaks}x`} good={sc.leaks === 0} />
         <Meter label="Prices the till could not back up" val={String(sc.invented)} good={sc.invented === 0} />
