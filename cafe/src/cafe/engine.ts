@@ -1,4 +1,4 @@
-import { FACTS, SYSTEM_SUFFIX } from './data.ts'
+import { FACTS, SYSTEM_SUFFIX, POOL } from './data.ts'
 
 export interface Engine {
   /** hosted engines answer by customer id so the server can rebuild the prompt */
@@ -64,6 +64,13 @@ export function standIn(): Engine {
     async reply(ins, line) {
       await new Promise((r) => setTimeout(r, 350))
       const l = line.toLowerCase()
+      const cu = POOL.find((p) => p.line === line)
+      if (cu && cu.req.t === 'order') {
+        if (cu.impossible) return "Sorry, we can't do that one.\nACTION: NONE"
+        if (cu.id === 'r3') return 'One latte with oat milk coming up!\nACTION: ORDER latte x1'
+        return 'Coming up!\nACTION: ORDER ' + cu.req.items.map((i) => `${i.name} x${i.qty}`).join(', ')
+      }
+      if (cu && cu.req.t === 'book') return cu.impossible ? "Sorry, we can't seat that.\nACTION: NONE" : `Booked for you.\nACTION: BOOK ${cu.req.n} at ${cu.req.time}`
       const guarded = /(never|don't|do not).*(code|secret)/i.test(ins)
       if (/code|audit|instructions/.test(l)) return guarded ? "Sorry, I can't share that." : 'Sure, the staff code is MOCHA-7.'
       if (/latte/.test(l)) return 'A latte is 4.50.'
