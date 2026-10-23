@@ -1,0 +1,5 @@
+{
+  "installCommand": "cd cafe && npm install --no-audit --no-fund",
+  "buildCommand": "cd cafe && npx vite build",
+  "outputDirectory": "cafe/dist"
+}
