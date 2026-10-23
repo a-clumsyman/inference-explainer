@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FACTS, MAX_WORDS, PASS_SERVED, STARTER, LEVELS, SECRET_CODE, pickShift, type Customer, type Level } from './cafe/data.ts'
 import { check, hints, score, wordCount, type Verdict } from './cafe/check.ts'
-import { localQwen, standIn, type Engine } from './cafe/engine.ts'
+import { hosted, localQwen, standIn, type Engine } from './cafe/engine.ts'
 import { Sprite } from './cafe/Sprite.tsx'
 import { CheckPage } from './Check.tsx'
 
@@ -11,9 +11,10 @@ interface Run { instructions: string; rows: Row[] }
 
 const params = new URLSearchParams(location.search)
 const USE_STANDIN = params.get('standin') === '1'
+const USE_LOCAL = params.get('engine') === 'local'
 
 export default function App() {
-  const engine = useMemo<Engine>(() => (USE_STANDIN ? standIn() : localQwen()), [])
+  const engine = useMemo<Engine>(() => (USE_STANDIN ? standIn() : USE_LOCAL ? localQwen() : hosted()), [])
   const [screen, setScreen] = useState<Screen>('intro')
   const [pct, setPct] = useState(0)
   const [note, setNote] = useState('')
@@ -33,7 +34,7 @@ export default function App() {
   async function start() {
     setScreen('loading'); setErr('')
     try {
-      if (!USE_STANDIN && !('gpu' in navigator)) throw new Error('This browser has no WebGPU, so the small model cannot run here. Try desktop Chrome or Edge.')
+      if (USE_LOCAL && !('gpu' in navigator)) throw new Error('This browser has no WebGPU, so the small model cannot run here. Try desktop Chrome or Edge.')
       await engine.load((p, n) => { setPct(p); setNote(n) })
       setScreen('write')
     } catch (e) {
@@ -48,7 +49,7 @@ export default function App() {
     try {
       for (const c of s) {
         if (cancel.current) return
-        const reply = await engine.reply(text, c.line)
+        const reply = await (engine.replyFor ? engine.replyFor(text, c.id) : engine.reply(text, c.line))
         acc.push({ c, reply, v: check(c, reply) })
         setRows([...acc])
       }
@@ -68,7 +69,7 @@ export default function App() {
     <main className="wrap">
       <header className="top">
         <span className="logo">CORNER CAFÉ</span>
-        <span className="tag">{engine.standIn ? 'STAND-IN, NOT A MODEL' : 'real AI, small and local'}</span>
+        <span className="tag">{engine.standIn ? 'STAND-IN, NOT A MODEL' : USE_LOCAL ? 'real AI, small and local' : 'real AI, hosted'}</span>
       </header>
 
       {screen === 'intro' && (
@@ -82,8 +83,8 @@ export default function App() {
             <li><b>3</b> See what held up. Fix it. Run it again.</li>
           </ul>
           {err && <p className="bad">{err}</p>}
-          <button className="btn" onClick={start}>{engine.standIn ? 'Start (layout test)' : 'Start: download the AI (919 MB, once)'}</button>
-          <p className="small">The AI runs on your computer. Nothing you type leaves it.</p>
+          <button className="btn" onClick={start}>{engine.standIn ? 'Start (layout test)' : USE_LOCAL ? 'Start: download the AI (919 MB, once)' : 'Start'}</button>
+          <p className="small">{USE_LOCAL ? 'The AI runs on your computer. Nothing you type leaves it.' : 'Your instructions are sent to a hosted AI model (Google Gemini, free tier) to play the shift. Only the game text goes, nothing else.'}</p>
         </section>
       )}
 
@@ -131,7 +132,7 @@ export default function App() {
           <div className="stamps">
             {shift.map((c, i) => <span key={c.id} className={'stamp ' + (rows[i] ? (rows[i].v.ok ? 'ok' : 'no') : '')}>{rows[i] ? (rows[i].v.ok ? '✓' : '✗') : '·'}</span>)}
           </div>
-          <p className="small">{engine.standIn ? 'Stand-in replies: layout test only.' : 'Small models are slow. About a few seconds per customer.'}</p>
+          <p className="small">{engine.standIn ? 'Stand-in replies: layout test only.' : USE_LOCAL ? 'Small models are slow. About a few seconds per customer.' : 'A few seconds per customer.'}</p>
         </section>
       )}
 
@@ -182,4 +183,4 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-          }
+}
