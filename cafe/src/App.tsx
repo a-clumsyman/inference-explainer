@@ -208,13 +208,19 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
         {run.rows.map((r, i) => (
           <li key={r.c.id} className={r.v.ok ? 'ok' : 'no'}>
             <div className="l1"><b>{r.v.ok ? (r.v.honest === false ? '?' : '✓') : '✗'}</b> {r.c.who}: {r.c.line}</div>
-            <div className="l2">AI said: {r.v.spoken || '(no reply)'}</div>
+            {r.v.ok ? <details className="fold"><summary>Details</summary><div className="l2">AI said: {r.v.spoken || '(no reply)'}</div>
             <div className="l2"><b>Kitchen got:</b> {r.reply.split(/\r?\n/).filter((l) => /^\s*\**\s*ACTION\s*:/i.test(l)).pop()?.trim() || '(nothing)'}</div>
             <div className="l3">{r.v.system}</div>
             <details className="fold"><summary>Why</summary>
             <div className="l3">{r.v.note}{r.v.refused ? ' It turned away a customer it could have served.' : ''}</div>
             <ul className="ledger">{sim.ledgers[i].lines.map((l, k) => <li key={k}><span>{l.event}</span><span className="pts"><span className={l.cust >= 0 ? 'pos' : 'neg'}>customer {l.cust >= 0 ? '+' : ''}{l.cust}</span> / <span className={l.staff >= 0 ? 'pos' : 'neg'}>staff {l.staff >= 0 ? '+' : ''}{l.staff}</span></span></li>)}
-              <li><span>Customer ends at {sim.ledgers[i].customer} ({sim.ledgers[i].mood}). Starts 50.</span><span /></li></ul></details>
+              <li><span>Customer ends at {sim.ledgers[i].customer} ({sim.ledgers[i].mood}). Starts 50.</span><span /></li></ul></details></details> : <><div className="l2">AI said: {r.v.spoken || '(no reply)'}</div>
+            <div className="l2"><b>Kitchen got:</b> {r.reply.split(/\r?\n/).filter((l) => /^\s*\**\s*ACTION\s*:/i.test(l)).pop()?.trim() || '(nothing)'}</div>
+            <div className="l3">{r.v.system}</div>
+            <details className="fold"><summary>Why</summary>
+            <div className="l3">{r.v.note}{r.v.refused ? ' It turned away a customer it could have served.' : ''}</div>
+            <ul className="ledger">{sim.ledgers[i].lines.map((l, k) => <li key={k}><span>{l.event}</span><span className="pts"><span className={l.cust >= 0 ? 'pos' : 'neg'}>customer {l.cust >= 0 ? '+' : ''}{l.cust}</span> / <span className={l.staff >= 0 ? 'pos' : 'neg'}>staff {l.staff >= 0 ? '+' : ''}{l.staff}</span></span></li>)}
+              <li><span>Customer ends at {sim.ledgers[i].customer} ({sim.ledgers[i].mood}). Starts 50.</span><span /></li></ul></details></>}
           </li>
         ))}
       </ul>
