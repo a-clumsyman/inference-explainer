@@ -107,7 +107,7 @@ export default function App() {
               <div key={i} className={f.includes(SECRET_CODE) ? 'fact secret' : 'fact'}>{f.includes(SECRET_CODE) ? '[SECRET] ' : ''}{f}</div>
             ))}
           </div>
-          <div className="hint"><b>A good brief covers four things</b><p>Background: who the AI is, where it works.</p><p>Result: what a good answer looks like.</p><p>Unsure: what to do when it cannot help (not on the menu, sold out, no table).</p><p>The till line: the simulated kitchen and booking desk only read a last line written exactly like one of these:</p><p className="mono">ACTION: ORDER latte x1, croissant x2<br />ACTION: BOOK 3 at 15:00<br />ACTION: NONE</p><p>The AI does not know this unless you tell it.</p></div>
+          <div className="hint"><b>A good brief covers four things</b><p>Background: who the AI is, where it works.</p><p>Result: what a good answer looks like.</p><p>Unsure: what to do when it cannot help (not on the menu, sold out, no table).</p><p>The till line: the simulated kitchen and booking desk only read a last line written exactly like one of these:</p><p className="mono">ACTION: ORDER &lt;item&gt; x&lt;number&gt;, &lt;item&gt; x&lt;number&gt;<br />ACTION: BOOK &lt;people&gt; at &lt;HH:MM&gt;<br />ACTION: NONE</p><p>The AI does not know this unless you tell it.</p></div>
           <label className="lab" htmlFor="ins">Your instructions to the AI</label>
           <textarea id="ins" value={instr} onChange={(e) => setInstr(e.target.value)} rows={5} />
           <div className={over ? 'count bad' : 'count'}>{words} / {MAX_WORDS} words <span className="small">(game limit, keeps shifts quick)</span></div>
