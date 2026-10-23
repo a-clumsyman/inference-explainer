@@ -70,3 +70,9 @@ textarea:focus{outline:none;border-color:var(--acc)}
 .fields select,.fields input{font:inherit;font-size:16px;background:#14111a;color:var(--ink);border:3px solid var(--line);padding:6px;min-height:40px}
 .adder-row{display:flex;flex-wrap:wrap;gap:8px}.adder-row .btn{width:auto;flex:1 1 140px;margin:6px 0}
 .fold{margin:10px 0}.fold summary{cursor:pointer;font-family:'Silkscreen',monospace;font-size:13px;color:var(--dim);padding:6px 0}.hint.plain{margin:6px 0}.tip{font-size:17px;color:var(--ink);margin:10px 0}
+
+.biscuit{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#efe3c3;color:#3a2a22;border:3px solid #b9a77a;padding:6px 10px;margin:10px 0}
+.biscuit .cat{font-size:24px}.biscuit .say{flex:1 1 180px;font-size:17px}.biscuit .say.dim{opacity:.7}
+.mini{font-family:'Silkscreen',monospace;font-size:12px;background:transparent;border:2px solid #3a2a22;color:#3a2a22;padding:6px 8px;min-height:36px;cursor:pointer}
+.over{border:4px solid var(--no);background:#2a1519;padding:10px 12px;margin:10px 0}.over p{margin:6px 0}.over .btn{margin:6px 0 2px}
+.warnline{border-left:6px solid var(--acc);padding:4px 10px;font-size:17px}
