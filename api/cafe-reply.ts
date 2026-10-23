@@ -76,7 +76,7 @@ export function pickShift(level: Level = LEVELS[1], rand: () => number = Math.ra
 // Server route: the game's hosted model call. Keys stay here, never in the browser.
 // Needs env var GEMINI_API_KEY from a Free-tier Google AI Studio project (no billing linked). Optional GEMINI_MODEL.
 
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite' // has a Free tier per Google's pricing page
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite' // has a Free tier per Google's pricing page
 // Best-effort only: this counter lives in one server instance's memory, so it is NOT a reliable global limit.
 // The real financial boundary is a Google project with no billing account linked, plus the per-request caps below.
 const DAILY_CAP = Number(process.env.CAFE_DAILY_CAP || 400)
@@ -103,7 +103,7 @@ export default async function handler(req: any, res: any) {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: c.line }] }],
-      generationConfig: { maxOutputTokens: 80, temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } },
+      generationConfig: { maxOutputTokens: 300, temperature: 0.7, thinkingConfig: { thinkingLevel: 'minimal' } },
     }),
   })
   if (!r.ok) { const body = await r.text().catch(() => ''); if (r.status !== 429) return res.status(502).json({ error: 'model error', status: r.status, detail: body.slice(0, 300) }) }
