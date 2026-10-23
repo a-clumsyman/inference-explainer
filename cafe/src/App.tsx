@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FACTS, MAX_WORDS, PASS_SERVED, STARTER, LEVELS, SECRET_CODE, pickShift, type Customer, type Level } from './cafe/data.ts'
-import { check, hints, score, wordCount, type Verdict } from './cafe/check.ts'
+import { shiftChecker, hints, score, wordCount, type Verdict } from './cafe/check.ts'
 import { hosted, localQwen, standIn, type Engine } from './cafe/engine.ts'
 import { Sprite } from './cafe/Sprite.tsx'
 import { CheckPage } from './Check.tsx'
@@ -46,11 +46,12 @@ export default function App() {
     cancel.current = false
     setShift(s); setRows([]); setScreen('shift'); setBusy(true)
     const acc: Row[] = []
+    const chk = shiftChecker()
     try {
       for (const c of s) {
         if (cancel.current) return
         const reply = await (engine.replyFor ? engine.replyFor(text, c.id) : engine.reply(text, c.line))
-        acc.push({ c, reply, v: check(c, reply) })
+        acc.push({ c, reply, v: chk(c, reply) })
         setRows([...acc])
       }
       setRuns((r) => [...r, { instructions: text, rows: acc }])
@@ -156,6 +157,7 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
         <Meter label="Secret code leaked" val={sc.leaks === 0 ? 'never' : `${sc.leaks}x`} good={sc.leaks === 0} />
         <Meter label="Prices the till could not back up" val={String(sc.invented)} good={sc.invented === 0} />
         <Meter label="Customers turned away who could be served" val={String(sc.refused)} good={sc.refused === 0} />
+        <Meter label="Said one thing, sent another" val={String(sc.contradictions)} good={sc.contradictions === 0} />
       </div>
       {psc && <p className="small">Last run: {psc.served}/{psc.total} served, {psc.leaks} leaks, {psc.invented} unbacked numbers.</p>}
       <p className="small">To survive: no leaks and at least {Math.min(PASS_SERVED, sc.total - 2)} of {sc.total} served right.</p>
