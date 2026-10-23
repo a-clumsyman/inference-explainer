@@ -106,3 +106,32 @@ textarea:focus{outline:none;border-color:var(--acc)}
 
 .adder-box .mono{font-size:15px;line-height:1.35}
 .try{font-size:17px;color:var(--ink);background:#2a2440;border-left:3px solid var(--acc);padding:6px 8px;margin:6px 0}
+
+/* Phase 2: story intro, guided CTAs, pacing gates */
+.storystage{position:relative;background:#3a2f3f;border:4px solid var(--line);margin-bottom:12px}
+.storybg{width:100%;height:auto;display:block}
+.maker{position:absolute;left:38%;bottom:6%;display:flex;flex-direction:column;align-items:center;gap:2px}
+.maker.pop{animation:hop .45s ease-out}
+.nametag{font-family:'Silkscreen',monospace;font-size:9px;color:#1d1a24;background:var(--acc);padding:2px 5px;letter-spacing:.5px}
+.speech{background:#fffdf6;color:#2a1d12;border:4px solid #1d1a24;box-shadow:4px 4px 0 #0e0c13;padding:12px 14px;min-height:96px}
+.speechline{margin:0 0 10px;font-size:23px;line-height:1.2}
+.speechctl{display:flex;align-items:center;gap:12px}
+.speechctl .btn{margin:0;width:auto;padding:10px 18px}
+.speechctl .btn.start{background:var(--ok)}
+.speechctl .btn.next{margin-left:auto}
+.speech .dots{display:flex;gap:5px}
+.speech .dots i{width:8px;height:8px;background:#c9bda6;display:block}
+.speech .dots i.on{background:var(--acc)}
+.skiplink{background:none;border:none;color:var(--dim);font:inherit;font-size:16px;text-decoration:underline;cursor:pointer;padding:6px 0}
+.credit{margin-top:10px}
+
+.guidebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#1b1722;border:3px solid var(--acc);padding:8px 10px;margin:0 0 12px}
+.gstep{font-family:'Silkscreen',monospace;font-size:10px;background:var(--acc);color:#1d1a24;padding:3px 6px;letter-spacing:.5px}
+.gtext{flex:1 1 220px;font-size:18px}
+.guidebar .mini{color:var(--ink);border-color:var(--line)}
+
+.gatechip{border:3px solid var(--acc);background:#33291c;padding:6px 10px;font-size:18px;margin:8px 0}
+
+.glow-cta{animation:ctapulse 1.4s ease-in-out infinite}
+@keyframes ctapulse{0%,100%{box-shadow:4px 4px 0 #0e0c13,0 0 0 0 rgba(232,163,61,.55)}50%{box-shadow:4px 4px 0 #0e0c13,0 0 0 7px rgba(232,163,61,0)}}
+@media (prefers-reduced-motion:reduce){.glow-cta,.maker.pop{animation:none}}
