@@ -2,7 +2,7 @@ import { FACTS, SYSTEM_SUFFIX, POOL } from './data.ts'
 
 export interface Engine {
   /** hosted engines answer by customer id so the server can rebuild the prompt */
-  replyFor?(instructions: string, customerId: string): Promise<string>
+  replyFor?(instructions: string, customerId: string, escalate?: boolean): Promise<string>
   id: string
   label: string
   /** true when replies are made up by the page, not a model. Always shown on screen. */
@@ -94,10 +94,10 @@ export function hosted(): Engine {
     standIn: false,
     async load(p) { p(1, 'no download') },
     async reply() { throw new Error('use replyFor') },
-    async replyFor(instructions, customerId) {
+    async replyFor(instructions, customerId, escalate) {
       // The free tier has a per-minute limit. On a rate-limit answer, wait and retry a few times.
       for (let attempt = 0; ; attempt++) {
-        const r = await fetch('/api/cafe-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions, customerId }) })
+        const r = await fetch('/api/cafe-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions, customerId, escalate: escalate === true }) })
         const j = await r.json().catch(() => ({}))
         const spent = j.kind === 'daily'
         if (r.status === 429 && !spent && attempt < 2) { await new Promise((res) => setTimeout(res, 7000)); continue }
@@ -108,4 +108,4 @@ export function hosted(): Engine {
     },
   }
   return e
-}
+    }
