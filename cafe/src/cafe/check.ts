@@ -26,7 +26,7 @@ export function parseReply(reply: string): { spoken: string; action: Action } {
   const raw = lines[idx].replace(/^\s*\**\s*ACTION\s*:\s*/i, '').replace(/\*+/g, '').trim()
   if (/^none\b/i.test(raw)) return { spoken, action: { t: 'none' } }
   if (/^order\b/i.test(raw)) {
-    const items = raw.replace(/^order\s*/i, '').split(/,|\band\b/i).map((p) => p.trim()).filter(Boolean).map((p) => {
+    const items = raw.replace(/^order\s*/i, '').split(/,|\band\b/i).map((p) => p.trim().replace(/^order\s+/i, '')).filter(Boolean).map((p) => {
       const m = p.match(/^(.*?)(?:\s*[x×]\s*(\d+))?$/i)
       const name = (m?.[1] ?? p).toLowerCase().replace(/\bvegan\b/g, '').replace(/\s+/g, ' ').trim()
       return { name, qty: m?.[2] ? parseInt(m[2], 10) : 1 }
