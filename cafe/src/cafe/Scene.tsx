@@ -54,7 +54,8 @@ export function AvatarBox({ look, mood, px = 5, label }: { look: Look; mood?: Mo
 
 interface View {
   cur: string | null
-  ticket: { text: string; phase: 'received' | 'prep' | 'done' | 'denied' } | null
+  ticket: { text: string; phase: 'received' | 'prep' | 'done' | 'denied' | 'none' } | null
+  status: { stamp: string; short: string; tone: 'ok' | 'no' | 'run' } | null
   ticks: number
   stock: Record<string, number>
   booked: number
@@ -70,20 +71,32 @@ interface View {
 }
 
 function view(events: Ev[], upto: number): View {
-  const v: View = { cur: null, ticket: null, ticks: 0, stock: { croissant: 2, 'banana bread': 1 }, booked: 0, mood: {}, spoken: '', curLine: '', eventKey: -1, served: 0, live: null, cross: false, denials: 0, reworks: 0 }
+  const v: View = { cur: null, ticket: null, status: null, ticks: 0, stock: { croissant: 2, 'banana bread': 1 }, booked: 0, mood: {}, spoken: '', curLine: '', eventKey: -1, served: 0, live: null, cross: false, denials: 0, reworks: 0 }
   for (const e of events.slice(0, upto)) {
     v.eventKey = e.idx
     if (e.stock) v.stock = e.stock
     if (e.booked !== undefined) v.booked = e.booked
-    if (e.kind === 'arrive') { v.cur = e.cid; v.ticket = null; v.live = null; v.cross = false; v.spoken = ''; v.curLine = e.text.replace(/^[^:]*: /, '').replace(/^"|"$/g, '') }
+    if (e.kind === 'arrive') { v.cur = e.cid; v.ticket = null; v.status = null; v.live = null; v.cross = false; v.spoken = ''; v.curLine = e.text.replace(/^[^:]*: /, '').replace(/^"|"$/g, '') }
     else if (e.kind === 'answered') v.spoken = e.text.replace(/^AI says: /, '')
-    else if (e.kind === 'ticket_received') v.ticket = { text: e.text.replace('Kitchen accepts: ', ''), phase: 'received' }
+    else if (e.kind === 'ticket_received') { v.ticket = { text: e.stamp ?? 'ACCEPTED', phase: 'received' }; v.status = { stamp: e.stamp ?? 'ACCEPTED', short: e.short ?? '', tone: 'run' } }
     else if (e.kind === 'prep_started') { if (v.ticket) v.ticket.phase = 'prep'; v.ticks = e.ticks ?? 0 }
-    else if (e.kind === 'prep_done') { if (v.ticket) v.ticket.phase = 'done'; v.live = 'happy' }
-    else if (e.kind === 'ticket_denied') { v.ticket = { text: 'DENIED', phase: 'denied' }; v.denials++; v.live = 'upset'; v.cross = true }
-    else if (e.kind === 'booking_rejected' || e.kind === 'nothing_sent') { v.live = 'upset'; if (e.kind === 'booking_rejected') { v.denials++; v.cross = true } }
+    else if (e.kind === 'prep_done') { if (v.ticket) v.ticket.phase = 'done'; v.live = 'happy'; if (v.status) v.status = { stamp: 'READY', short: v.status.short, tone: 'ok' } }
+    else if (e.kind === 'ticket_denied') { v.ticket = { text: e.stamp ?? 'DENIED', phase: 'denied' }; v.status = { stamp: e.stamp ?? 'DENIED', short: e.short ?? '', tone: 'no' }; v.denials++; v.live = 'upset'; v.cross = true }
+    else if (e.kind === 'booking_rejected') { v.ticket = { text: e.stamp ?? 'DENIED', phase: 'denied' }; v.status = { stamp: e.stamp ?? 'DENIED', short: e.short ?? '', tone: 'no' }; v.denials++; v.live = 'upset'; v.cross = true }
+    else if (e.kind === 'nothing_sent') {
+      const clean = e.tone === 'ok'
+      v.ticket = { text: e.stamp ?? (clean ? 'NO ACTION NEEDED' : 'NOT SENT'), phase: clean ? 'none' : 'denied' }
+      v.status = { stamp: e.stamp ?? (clean ? 'NO ACTION NEEDED' : 'NOT SENT'), short: e.short ?? '', tone: clean ? 'ok' : 'no' }
+      if (!clean) v.live = 'upset'
+    }
+    else if (e.kind === 'no_action') {
+      const clean = e.tone === 'ok'
+      v.ticket = { text: e.stamp ?? 'NO ACTION NEEDED', phase: clean ? 'none' : 'denied' }
+      v.status = { stamp: e.stamp ?? 'NO ACTION NEEDED', short: e.short ?? '', tone: clean ? 'ok' : 'no' }
+      if (!clean) v.live = 'upset'
+    }
     else if (e.kind === 'rework') { v.reworks++; v.live = 'upset'; v.cross = true }
-    else if (e.kind === 'booking_confirmed') v.live = 'happy'
+    else if (e.kind === 'booking_confirmed') { v.ticket = { text: e.stamp ?? 'BOOKED', phase: 'done' }; v.status = { stamp: e.stamp ?? 'BOOKED', short: e.short ?? '', tone: 'ok' }; v.live = 'happy' }
     else if (e.kind === 'mood' && e.mood) { v.mood[e.cid] = e.mood; v.served++; v.live = null }
   }
   return v
@@ -98,8 +111,11 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
   const curMood: Mood = curC ? v.mood[curC.id] ?? v.live ?? 'neutral' : 'neutral'
   const chef: 'calm' | 'cross' | 'angry' = !v.cross ? 'calm' : v.denials >= 2 || v.reworks >= 2 ? 'angry' : 'cross'
   const ph = v.ticket?.phase
+  const custSay = curC ? (pending ? pending.line : v.curLine || curC.line) : ''
+  const aiSay = pending ? 'thinking…' : v.spoken || '…'
   return (
     <div className="scene2">
+      <div className="stagewrap">
       <svg viewBox="0 0 150 72" role="img" aria-label="The café, drawn from the shift events" shapeRendering="crispEdges">
         <rect width="150" height="46" fill="#e3c08c" /><rect y="30" width="150" height="2" fill="#c9955a" /><rect y="32" width="150" height="14" fill="#c98f5a" />
         <rect y="46" width="150" height="26" fill="#6b4328" />
@@ -117,7 +133,7 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
         <rect x="54" y="8" width="34" height="10" fill="#3a2a22" />
         {v.ticket && (
           <g key={`t${v.eventKey >= 0 ? v.ticket.text + ph : ''}`} className={'ticket ' + ph}>
-            <rect x="56" y="9" width="30" height="8" fill={ph === 'denied' ? '#d9604c' : ph === 'done' ? '#6bbf7a' : '#e8dcc0'} />
+            <rect x="56" y="9" width="30" height="8" fill={ph === 'denied' ? '#d9604c' : ph === 'done' ? '#6bbf7a' : ph === 'none' ? '#9db3c8' : '#e8dcc0'} />
             <text x="58" y="14.5" fontSize="3.6" fill="#1d1a24" fontFamily="VT323">{v.ticket.text.toUpperCase().slice(0, 18)}</text>
             {ph === 'prep' && <rect className="prep" x="56" y="16" width="30" height="1.5" fill="#e8a33d" style={{ animationDuration: `${Math.max(0.4, v.ticks * 0.25)}s` }} />}
           </g>
@@ -139,10 +155,10 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
         {/* stock */}
         <rect x="114" y="30" width="30" height="12" fill="#4a3326" /><text x="116" y="35" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">CROISSANT {v.stock.croissant}</text><text x="116" y="40" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">BANANA BR. {v.stock['banana bread']}</text>
       </svg>
-      <div className="speech">
-        {curC && <div className="bubble cust"><small>{curC.who}</small>{pending ? pending.line : v.curLine || curC.line}</div>}
-        {curC && <div className="bubble ai"><small>Your AI</small>{pending ? <span className="dots">thinking</span> : v.spoken || '...'}</div>}
+      {curC && <div className="say custsay" key={'c' + custSay}><small>{curC.who}</small><span className="saytxt">{custSay}</span></div>}
+      {curC && <div className="say aisay" key={'a' + aiSay}><small>YOUR AI</small><span className="saytxt">{aiSay}</span></div>}
       </div>
+      {v.status && <div className={'kstat ' + v.status.tone}><b>{v.status.stamp}</b>{v.status.short ? ' · ' + v.status.short : ''}</div>}
       <ol className="feed" aria-live="polite">
         {events.slice(Math.max(0, idx - 4), idx).map((e) => <li key={e.idx} className={'ev ' + e.kind}>{e.text}</li>)}
       </ol>
