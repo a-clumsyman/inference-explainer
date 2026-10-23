@@ -76,3 +76,10 @@ textarea:focus{outline:none;border-color:var(--acc)}
 .mini{font-family:'Silkscreen',monospace;font-size:12px;background:transparent;border:2px solid #3a2a22;color:#3a2a22;padding:6px 8px;min-height:36px;cursor:pointer}
 .over{border:4px solid var(--no);background:#2a1519;padding:10px 12px;margin:10px 0}.over p{margin:6px 0}.over .btn{margin:6px 0 2px}
 .warnline{border-left:6px solid var(--acc);padding:4px 10px;font-size:17px}
+
+.steam{animation:rise 2.4s ease-in infinite}.steam.s2{animation-delay:1.1s}
+@keyframes rise{0%{transform:translateY(0);opacity:.6}100%{transform:translateY(-6px);opacity:0}}
+.glow{animation:flick 4s ease-in-out infinite}@keyframes flick{50%{opacity:.14}}
+.chef.angry{animation:shake .3s 2}.chefsay{animation:pop .25s ease-out}.emote{animation:pop .3s ease-out}.cust.upset{animation:shake .3s 2}.cust.happy{animation:hop .45s ease-out}
+@keyframes shake{25%{transform:translateX(-1px)}75%{transform:translateX(1px)}}
+@media (prefers-reduced-motion:reduce){.steam,.glow,.chef.angry,.chefsay,.emote,.cust.upset,.cust.happy{animation:none}}
