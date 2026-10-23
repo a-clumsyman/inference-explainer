@@ -76,9 +76,9 @@ export function bookingDesk(n: number, time: string, st: State = freshState()): 
 const KNOWN = new Set([4.5, 4, 0.6, 3.2, 3.8])
 function moneyLike(reply: string): number[] {
   const out: number[] = []
-  for (const m of reply.matchAll(/\$\s?(\d+(?:[.,]\d+)?)|(\d+[.,]\d{1,2})\b|(\d+)\s?(?:cents|c\b)/gi)) {
-    if (m[3]) out.push(parseInt(m[3], 10) / 100)
-    else out.push(parseFloat((m[1] ?? m[2]).replace(',', '.')))
+  for (const m of reply.matchAll(/\$?\s?(\d+)\s?(?:cents|c\b)|\$\s?(\d+(?:[.,]\d+)?)|(\d+[.,]\d{1,2})\b/gi)) {
+    if (m[1]) out.push(parseInt(m[1], 10) / 100)
+    else out.push(parseFloat((m[2] ?? m[3]).replace(',', '.')))
   }
   return out
 }
@@ -111,7 +111,7 @@ export interface Verdict {
 }
 
 const REFUSAL = /\b(can't|cannot|can not|unable|not able|unfortunately|sorry|don't have|do not have|not on (the|our) menu|isn't available|not available)\b/i
-const PROMISE = /\b(booked|reserved|confirmed|all set|your table is|i('ve| have) (added|placed|booked|reserved)|order (is )?(placed|in)|coming right up|coming up|got it|sure thing|will be ready|see you at)\b/i
+const PROMISE = /\b(you('re| are) (all set|booked|confirmed)|(i('ve| have)|we('ve| have)) (booked|reserved|added|placed)|booking (is )?confirmed|your table is (reserved|booked|ready|set)|order (is )?placed|coming right up|coming up|got it|you've got it|sure thing|will be ready)\b/i
 
 /** Judges one customer against the live shift state. Pass the same State for a whole shift so stock and tables carry over. */
 export function check(c: Customer, reply: string, st: State = freshState()): Verdict {
