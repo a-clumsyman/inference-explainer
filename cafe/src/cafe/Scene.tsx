@@ -14,6 +14,7 @@ export function lookFor(c: { id: string; group?: string }): Look {
   const acc = c.group === 'push' ? 'tie' : (['cap', 'glass', 'none', 'cap'] as const)[h % 4]
   return { hair: HAIR[h % HAIR.length], shirt: c.group === 'push' ? '#3a3a4a' : SHIRT[(h >> 3) % SHIRT.length], acc, accc: '#d9604c' }
 }
+export const CHEF: Look = { hair: '#efe3c3', shirt: '#f4f0e6', acc: 'cap', accc: '#f4f0e6' }
 export const BARISTA: Look = { hair: '#3a2a22', shirt: '#8a5a3a', acc: 'apron', accc: '' }
 
 const ROWS = [
@@ -62,21 +63,27 @@ interface View {
   curLine: string
   eventKey: number
   served: number
+  live: Mood | null
+  denials: number
+  reworks: number
 }
 
 function view(events: Ev[], upto: number): View {
-  const v: View = { cur: null, ticket: null, ticks: 0, stock: { croissant: 2, 'banana bread': 1 }, booked: 0, mood: {}, spoken: '', curLine: '', eventKey: -1, served: 0 }
+  const v: View = { cur: null, ticket: null, ticks: 0, stock: { croissant: 2, 'banana bread': 1 }, booked: 0, mood: {}, spoken: '', curLine: '', eventKey: -1, served: 0, live: null, denials: 0, reworks: 0 }
   for (const e of events.slice(0, upto)) {
     v.eventKey = e.idx
     if (e.stock) v.stock = e.stock
     if (e.booked !== undefined) v.booked = e.booked
-    if (e.kind === 'arrive') { v.cur = e.cid; v.ticket = null; v.spoken = ''; v.curLine = e.text.replace(/^[^:]*: /, '').replace(/^"|"$/g, '') }
+    if (e.kind === 'arrive') { v.cur = e.cid; v.ticket = null; v.live = null; v.spoken = ''; v.curLine = e.text.replace(/^[^:]*: /, '').replace(/^"|"$/g, '') }
     else if (e.kind === 'answered') v.spoken = e.text.replace(/^AI says: /, '')
     else if (e.kind === 'ticket_received') v.ticket = { text: e.text.replace('Kitchen accepts: ', ''), phase: 'received' }
     else if (e.kind === 'prep_started') { if (v.ticket) v.ticket.phase = 'prep'; v.ticks = e.ticks ?? 0 }
-    else if (e.kind === 'prep_done') { if (v.ticket) v.ticket.phase = 'done' }
-    else if (e.kind === 'ticket_denied') v.ticket = { text: 'DENIED', phase: 'denied' }
-    else if (e.kind === 'mood' && e.mood) { v.mood[e.cid] = e.mood; v.served++ }
+    else if (e.kind === 'prep_done') { if (v.ticket) v.ticket.phase = 'done'; v.live = 'happy' }
+    else if (e.kind === 'ticket_denied') { v.ticket = { text: 'DENIED', phase: 'denied' }; v.denials++; v.live = 'upset' }
+    else if (e.kind === 'booking_rejected' || e.kind === 'nothing_sent') { v.live = 'upset'; if (e.kind === 'booking_rejected') v.denials++ }
+    else if (e.kind === 'rework') { v.reworks++; v.live = 'upset' }
+    else if (e.kind === 'booking_confirmed') v.live = 'happy'
+    else if (e.kind === 'mood' && e.mood) { v.mood[e.cid] = e.mood; v.served++; v.live = null }
   }
   return v
 }
@@ -87,23 +94,26 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
   const curC = pending ?? shift.find((c) => c.id === v.cur) ?? null
   const done = new Set(Object.keys(v.mood))
   const queue = shift.filter((c) => c.id !== curC?.id && !done.has(c.id)).slice(0, 5)
-  const curMood: Mood = curC ? v.mood[curC.id] ?? 'neutral' : 'neutral'
+  const curMood: Mood = curC ? v.mood[curC.id] ?? v.live ?? 'neutral' : 'neutral'
+  const chef: 'calm' | 'cross' | 'angry' = v.denials >= 2 || v.reworks >= 2 ? 'angry' : v.ticket?.phase === 'denied' || v.reworks ? 'cross' : 'calm'
   const ph = v.ticket?.phase
   return (
     <div className="scene2">
       <svg viewBox="0 0 150 72" role="img" aria-label="The café, drawn from the shift events" shapeRendering="crispEdges">
-        <rect width="150" height="46" fill="#4a3b4f" /><rect y="30" width="150" height="2" fill="#6a5570" />
-        <rect y="46" width="150" height="26" fill="#5a4030" />
-        <rect x="5" y="5" width="32" height="19" fill="#1d1a24" /><rect x="6" y="6" width="30" height="17" fill="#2a3a30" />
+        <rect width="150" height="46" fill="#e3c08c" /><rect y="30" width="150" height="2" fill="#c9955a" /><rect y="32" width="150" height="14" fill="#c98f5a" />
+        <rect y="46" width="150" height="26" fill="#6b4328" />
+        <rect x="5" y="5" width="32" height="19" fill="#5a3a24" /><rect x="6" y="6" width="30" height="17" fill="#2f3d33" />
         {['LATTE 4.50', 'CAPP 4.00', 'CROIS 3.20'].map((t, i) => <text key={t} x="8" y={12 + i * 5} fontSize="3.6" fill="#f1e7d0" fontFamily="VT323">{t}</text>)}
-        <rect x="112" y="5" width="34" height="22" fill="#2a2a44" /><rect x="114" y="7" width="14" height="18" fill="#8fb4d9" /><rect x="130" y="7" width="14" height="18" fill="#8fb4d9" />
+        <rect x="112" y="5" width="34" height="22" fill="#7a4a2c" /><rect x="114" y="7" width="14" height="18" fill="#8fb4d9" /><rect x="130" y="7" width="14" height="18" fill="#8fb4d9" />
+        {[45, 100].map((lx) => <g key={lx}><rect x={lx} y="0" width="1" height="5" fill="#3a2a22" /><rect x={lx - 4} y="5" width="9" height="3" fill="#e8a33d" /><rect className="glow" x={lx - 8} y="8" width="17" height="10" fill="#fff2c0" opacity="0.22" /></g>)}
         <Avatar look={BARISTA} x={70} y={20} w={14} label="Your AI, the barista" />
+        <g className={'chef ' + chef}><Avatar look={CHEF} mood={chef === 'calm' ? 'neutral' : 'upset'} x={93} y={7} w={12} label={chef === 'calm' ? 'The chef, calm' : 'The chef, angry'} />{chef !== 'calm' && <g key={chef + v.denials + v.reworks} className="chefsay"><rect x="104" y="6" width="26" height="9" fill="#fff" stroke="#d9604c" strokeWidth="0.8" /><text x="106" y="12.3" fontSize="4.2" fill="#a3321f" fontFamily="VT323">{chef === 'angry' ? 'NOT AGAIN!' : 'NO.'}</text></g>}</g>
         <rect x="40" y="34" width="72" height="16" fill="#8a5a3a" /><rect x="40" y="32" width="72" height="3" fill="#b97e50" />
-        <rect x="46" y="23" width="14" height="10" fill="#9a9aa8" /><rect x="48" y="25" width="4" height="3" fill="#d9604c" />
+        <rect className="steam" x="51" y="18" width="2" height="3" fill="#fff" opacity="0.6" /><rect className="steam s2" x="55" y="18" width="2" height="3" fill="#fff" opacity="0.6" /><rect x="46" y="23" width="14" height="10" fill="#9a9aa8" /><rect x="48" y="25" width="4" height="3" fill="#d9604c" />
         <rect x="96" y="27" width="11" height="6" fill="#e8a33d" /><rect x="98" y="28" width="7" height="2" fill="#1d1a24" />
         {/* pass window and ticket */}
-        <rect x="52" y="6" width="38" height="14" fill="#1d1a24" />
-        <rect x="54" y="8" width="34" height="10" fill="#2a2433" />
+        <rect x="52" y="6" width="38" height="14" fill="#5a3a24" />
+        <rect x="54" y="8" width="34" height="10" fill="#3a2a22" />
         {v.ticket && (
           <g key={`t${v.eventKey >= 0 ? v.ticket.text + ph : ''}`} className={'ticket ' + ph}>
             <rect x="56" y="9" width="30" height="8" fill={ph === 'denied' ? '#d9604c' : ph === 'done' ? '#6bbf7a' : '#e8dcc0'} />
@@ -111,12 +121,12 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
             {ph === 'prep' && <rect className="prep" x="56" y="16" width="30" height="1.5" fill="#e8a33d" style={{ animationDuration: `${Math.max(0.4, v.ticks * 0.25)}s` }} />}
           </g>
         )}
-        <text x="54" y="4.5" fontSize="3.4" fill="#a89f8c" fontFamily="VT323">KITCHEN PASS</text>
+        <text x="54" y="4.5" fontSize="3.4" fill="#5a3a24" fontFamily="VT323">KITCHEN PASS</text>
         {/* customer at the counter */}
-        {curC && <g key={`c${curC.id}-${curMood}`} className="cust"><Avatar look={lookFor(curC)} mood={curMood} x={64} y={42} w={16} label={`${curC.who}, ${curMood}`} /></g>}
+        {curC && <g key={`c${curC.id}-${curMood}`} className={'cust ' + curMood}><Avatar look={lookFor(curC)} mood={curMood} x={64} y={42} w={16} label={`${curC.who}, ${curMood}`} />{curMood !== 'neutral' && <text className="emote" x="82" y="46" fontSize="8" fill={curMood === 'upset' ? '#d9604c' : '#6bbf7a'} fontFamily="VT323">{curMood === 'upset' ? '!' : '♥'}</text>}</g>}
         {/* queue */}
         {queue.map((c, i) => <Avatar key={c.id} look={lookFor(c)} x={8 + i * 11} y={50} w={10} />)}
-        <text x="6" y="70" fontSize="3.4" fill="#a89f8c" fontFamily="VT323">QUEUE {queue.length}   SERVED {v.served}/{shift.length}</text>
+        <text x="6" y="70" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">QUEUE {queue.length}   SERVED {v.served}/{shift.length}</text>
         {/* tables: bookings accepted so far */}
         {[0, 1, 2].map((i) => (
           <g key={i}>
@@ -124,9 +134,9 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
             {i < v.booked && <g className="seat"><rect x={98 + i * 17} y="54" width="3" height="4" fill="#efe3c3" /><rect x={105 + i * 17} y="54" width="3" height="4" fill="#efe3c3" /></g>}
           </g>
         ))}
-        <text x="96" y="70" fontSize="3.4" fill="#a89f8c" fontFamily="VT323">BOOKED TODAY {v.booked} OF 3 TABLES</text>
+        <text x="96" y="70" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">BOOKED TODAY {v.booked} OF 3 TABLES</text>
         {/* stock */}
-        <rect x="114" y="30" width="30" height="12" fill="#2a2433" /><text x="116" y="35" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">CROISSANT {v.stock.croissant}</text><text x="116" y="40" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">BANANA BR. {v.stock['banana bread']}</text>
+        <rect x="114" y="30" width="30" height="12" fill="#4a3326" /><text x="116" y="35" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">CROISSANT {v.stock.croissant}</text><text x="116" y="40" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">BANANA BR. {v.stock['banana bread']}</text>
       </svg>
       <div className="speech">
         {curC && <div className="bubble cust"><small>{curC.who}</small>{pending ? pending.line : v.curLine || curC.line}</div>}
