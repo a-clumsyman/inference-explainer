@@ -17,9 +17,9 @@ export function ActionAdder({ value, onChange }: { value: string; onChange: (v: 
     ? `ACTION: ORDER ${item} x${qty}`
     : kind === 'book' ? `ACTION: BOOK ${people} at ${time}` : 'ACTION: NONE'
   const sentence = kind === 'order'
-    ? `When a customer orders items we have, end your reply with a last line like ${line}. Use their real items.`
+    ? `For orders, end your reply with a last line: ACTION: ORDER <item> x<number>, like ${line}. Use the customer's real order.`
     : kind === 'book'
-      ? `When a customer asks for a table we can seat, end your reply with a last line like ${line}.`
+      ? `For tables, end your reply with a last line: ACTION: BOOK <people> at <HH:MM>, like ${line}. Use the customer's real details.`
       : `If you cannot help (not on the menu, sold out, no table), end your reply with ${line}.`
   const added = wordCount(sentence)
   const total = wordCount(value) + added
@@ -41,14 +41,14 @@ export function ActionAdder({ value, onChange }: { value: string; onChange: (v: 
           </div>
           {kind === 'order' && (
             <div className="fields">
-              <label>Example item <select value={item} onChange={(e) => setItem(e.target.value)}>{Object.keys(MENU).map((m) => <option key={m}>{m}</option>)}</select></label>
+              <label>Example item (yours: real order) <select value={item} onChange={(e) => setItem(e.target.value)}>{Object.keys(MENU).map((m) => <option key={m}>{m}</option>)}</select></label>
               <label>How many <input type="number" min={1} max={9} value={qty} onChange={(e) => setQty(Math.max(1, Math.min(9, Number(e.target.value) || 1)))} /></label>
             </div>
           )}
           {kind === 'book' && (
             <div className="fields">
-              <label>People <input type="number" min={1} max={12} value={people} onChange={(e) => setPeople(Math.max(1, Math.min(12, Number(e.target.value) || 1)))} /></label>
-              <label>Time <select value={time} onChange={(e) => setTime(e.target.value)}>{['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'].map((t) => <option key={t}>{t}</option>)}</select></label>
+              <label>Example people <input type="number" min={1} max={12} value={people} onChange={(e) => setPeople(Math.max(1, Math.min(12, Number(e.target.value) || 1)))} /></label>
+              <label>Example time <select value={time} onChange={(e) => setTime(e.target.value)}>{['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'].map((t) => <option key={t}>{t}</option>)}</select></label>
             </div>
           )}
           <p className="mono">{sentence}</p>
