@@ -13,7 +13,7 @@ import { gameOver } from './cafe/gameover.ts'
 
 type Screen = 'intro' | 'loading' | 'write' | 'shift' | 'results'
 interface Row { c: Customer; reply: string; v: Verdict }
-interface Run { instructions: string; rows: Row[] }
+interface Run { instructions: string; rows: Row[]; planned: number }
 
 const params = new URLSearchParams(location.search)
 const USE_STANDIN = params.get('standin') === '1'
@@ -64,8 +64,9 @@ export default function App() {
         const reply = await (engine.replyFor ? engine.replyFor(text, c.id) : engine.reply(text, c.line))
         acc.push({ c, reply, v: chk(c, reply) })
         setRows([...acc])
+        if (gameOver(simulate(acc.map((r) => r.c), acc.map((r) => r.reply)), (level.n ?? 1) - 1).over) break
       }
-      seenIds.push(...acc.map((r) => r.c.id)); setRuns((r) => [...r, { instructions: text, rows: acc }])
+      seenIds.push(...acc.map((r) => r.c.id)); setRuns((r) => [...r, { instructions: text, rows: acc, planned: s.length }])
       setScreen('results')
     } catch (e) {
       setErr(String((e as Error).message ?? e)); setScreen('write')
@@ -148,10 +149,11 @@ export default function App() {
 
 function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame }: { runs: Run[]; level: Level; hasNext: boolean; standIn: boolean; engine: Engine; onNext: () => void; onEdit: () => void; onSame: () => void }) {
   const run = runs[runs.length - 1]
-  const passMark = Math.min(PASS_SERVED, run.rows.length - 2)
+  const passMark = Math.min(PASS_SERVED, run.planned - 2)
   const prev = runs.length > 1 ? runs[runs.length - 2] : null
   const sc = score(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), passMark)
   const psc = prev ? score(prev.rows.map((r) => r.c), prev.rows.map((r) => r.reply), passMark) : null
+  const firstBad = run.rows.find((x) => !x.v.ok)
   const hs = hints(run.instructions)
   const sim = useMemo(() => simulate(run.rows.map((r) => r.c), run.rows.map((r) => r.reply)), [run])
   const pl = usePlayer(sim.events.length, sim.events.length)
@@ -175,7 +177,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
     <section className="card">
       <h1 className={finished ? (sc.won ? 'win' : 'lose') : ''}>{finished ? (go.over ? 'Shift closed early' : sc.won ? 'Shift survived' : 'Below the pass mark') : 'Replaying the shift'} <small>{level.title}</small></h1>
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
-      {finished && go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} The shift is over at customer {go.at} of {sc.total}. All {sc.total} customers were still run through the AI so you can learn from them. Customers after {go.at} did not count in a real shift, so the score below is a what-if.</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
+      {finished && go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} The shift closed at customer {go.at} of {run.planned}. {run.planned - run.rows.length} customer(s) were never sent to the AI, so there are no calls and no score for them.</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
       {finished && go.warn && <p className="warnline">Warning: {go.reason} From Day 2 this closes the shift.</p>}
       {finished && <Biscuit spot={go.over ? 'over' : 'results'} />}
       <div className="ctl"><button className="btn ghost" onClick={pl.replay}>Replay the shift</button><button className="btn ghost" onClick={pl.skip}>Skip to end</button></div>
@@ -192,7 +194,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
         </details>
       </div>
       {psc && <p className="small">Last run: {psc.served}/{psc.total} served, {psc.leaks} leaks, {psc.invented} unbacked numbers.</p>}
-      <p className="small">To survive: no leaks and at least {Math.min(PASS_SERVED, sc.total - 2)} of {sc.total} served right.</p>
+      <p className="small">To survive: no leaks and at least {Math.min(PASS_SERVED, run.planned - 2)} of {run.planned} served right.</p>
       {finished && target && (
         <div className="esc">
           <b>Escalation</b>
@@ -208,7 +210,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
         {run.rows.map((r, i) => (
           <li key={r.c.id} className={r.v.ok ? 'ok' : 'no'}>
             <div className="l1"><b>{r.v.ok ? (r.v.honest === false ? '?' : '✓') : '✗'}</b> {r.c.who}: {r.c.line}</div>
-            {r.v.ok ? <details className="fold"><summary>Details</summary><div className="l2">AI said: {r.v.spoken || '(no reply)'}</div>
+            {r.v.ok || r !== firstBad ? <details className="fold"><summary>Details</summary><div className="l2">AI said: {r.v.spoken || '(no reply)'}</div>
             <div className="l2"><b>Kitchen got:</b> {r.reply.split(/\r?\n/).filter((l) => /^\s*\**\s*ACTION\s*:/i.test(l)).pop()?.trim() || '(nothing)'}</div>
             <div className="l3">{r.v.system}</div>
             <details className="fold"><summary>Why</summary>
@@ -239,4 +241,4 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-}
+      }
