@@ -106,6 +106,7 @@ export default async function handler(req: any, res: any) {
       generationConfig: { maxOutputTokens: 80, temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } },
     }),
   })
+  if (!r.ok) { const body = await r.text().catch(() => ''); if (r.status !== 429) return res.status(502).json({ error: 'model error', status: r.status, detail: body.slice(0, 300) }) }
   if (!r.ok) return res.status(r.status === 429 ? 429 : 502).json({ error: r.status === 429 ? 'The free allowance is busy or used up. Try again shortly.' : 'model error', status: r.status })
   const j: any = await r.json()
   const text = (j?.candidates?.[0]?.content?.parts ?? []).map((x: any) => x.text ?? '').join('')
