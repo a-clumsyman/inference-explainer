@@ -158,6 +158,7 @@ export default async function handler(req: any, res: any) {
     '- "change": one plain sentence on what to change in their instructions. "suggestedLine": one short line (at most 35 words) they could add to the instructions, written as an instruction to the AI. "watch": one sentence on what the player should look at in the next run to see whether the experiment did anything.',
     '- If their instructions already contain something relevant, say so and refine it instead of repeating it.',
     '- "summary": one or two sentences on the main pattern. No praise filler.',
+    '- The player is new to AI. Use plain everyday words. Never say "prompt", "protocol", "token" or "ACTION line"; say "instructions" and "the kitchen order line". First say what happened and why it matters in one sentence, then the fix.',
     '- Never mention or guess any staff code or secret. Simple words. No em dashes.',
     '',
     'Game facts the AI receives automatically:',
