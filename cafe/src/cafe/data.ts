@@ -17,6 +17,7 @@ export const MENU: Record<string, number> = { latte: 4.5, cappuccino: 4, 'oat mi
 export const STOCK: Record<string, number> = { croissant: 2, 'banana bread': 1 }
 export const MAX_PARTY = 4
 export const FULL_SLOTS = ['12:00']
+export const TABLES = 3
 export const OPEN_SLOTS = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00']
 
 export const SYSTEM_SUFFIX = 'Reply to the customer in one or two short sentences. Add any extra line the instructions above ask for.'
@@ -60,7 +61,7 @@ export const POOL: Customer[] = [
   ord('r5', 'Sweet tooth', 'One chocolate muffin please.', [{ name: 'chocolate muffin', qty: 1 }], true),
   ord('r6', 'Team lead', 'Three croissants for the office, please.', [{ name: 'croissant', qty: 3 }], true),
   ord('r7', 'Hipster', 'A flat white please.', [{ name: 'flat white', qty: 1 }], true),
-  ord('r8', 'Brunch pair', 'Two banana breads please.', [{ name: 'banana bread', qty: 2 }], true),
+  ord('r8', 'Sweet tooth', 'A chocolate croissant please.', [{ name: 'chocolate croissant', qty: 1 }], true),
   bk('b1', 'Friends', 'Table for 3 at 15:00 please.', 3, '15:00'),
   bk('b2', 'Reader', 'Can I book a table for 2 at 09:00?', 2, '09:00'),
   bk('b3', 'Family', 'Table for 4 at 14:00.', 4, '14:00'),
