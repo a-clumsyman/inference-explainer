@@ -35,7 +35,7 @@ export function Story({ startLabel, onStart }: { startLabel: string; onStart: ()
           <image href={mug} x="100" y="26" width="6" height="6" style={{ imageRendering: 'pixelated' }} />
         </svg>
         <div className={still ? 'maker' : 'maker pop'}>
-          <AvatarBox look={MAKER} mood="happy" px={7} label="Clumsyman, the maker of this game" />
+          <AvatarBox look={MAKER} mood="happy" px={7} label="Clumsyman, the maker of this game" pose={n === 0 ? 'wave' : 'idle'} talking />
           <span className="nametag">CLUMSYMAN · AI ENGINEER</span>
         </div>
       </div>
