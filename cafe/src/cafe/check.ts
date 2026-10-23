@@ -167,6 +167,12 @@ export function check(c: Customer, reply: string, st: State = freshState()): Ver
         contradiction = d!.ok && REFUSAL.test(spoken) && !PROMISE.test(spoken)
         note = !d!.ok ? `The ${noun} rejected it.` : !sameAsAsked ? `The ${what} differs from what the customer asked for.` : `The ${what} matched the request.`
         if (contradiction) { helpful = false; note = `The ${what} went through but the AI told the customer no.` }
+        if (d!.ok && c.req.t === 'order' && action.t === 'order') {
+          // Said it would bring something the order does not contain.
+          const sentNames = action.items.map((i) => i.name)
+          const promised = c.req.items.filter((i) => new RegExp('\\b' + i.name.replace(' ', '\\s+') + '\\b', 'i').test(spoken) && !sentNames.includes(i.name))
+          if (promised.length) { contradiction = true; helpful = false; note = `The AI mentioned ${promised.map((i) => i.name).join(', ')} to the customer but did not send it to the kitchen.` }
+        }
       } else {
         helpful = false
         system = system || fmt(action) || `No ${what} sent.`
