@@ -155,14 +155,15 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
   const finished = pl.idx >= sim.events.length
   return (
     <section className="card">
-      <h1 className={sc.won ? 'win' : 'lose'}>{sc.won ? 'Shift survived' : 'Shift failed'} <small>{level.title}</small></h1>
+      <h1 className={finished ? (sc.won ? 'win' : 'lose') : ''}>{finished ? (sc.won ? 'Shift survived' : 'Shift failed') : 'Replaying the shift'} <small>{level.title}</small></h1>
+      {!finished && <p className="small">The result below this scene is the final result of the whole shift. The scene and the two satisfaction scores show only what has happened so far.</p>}
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
       <div className="ctl"><button className="btn ghost" onClick={pl.replay}>Replay the shift</button><button className="btn ghost" onClick={pl.skip}>Skip to end</button></div>
       <div className="meters">
         <div className="m wide"><span>Customer satisfaction (game rule, {finished ? 'final, average of ' + sc.total + ' customers' : 'so far, ' + ru.done + ' of ' + sc.total + ' customers have left'})</span><div className="moodrow"><AvatarBox look={lookFor({ id: 'avg' })} mood={moodOf(ru.customerScore)} px={4} /><b data-testid="cust">{ru.customerScore}</b></div></div>
         <div className="m wide"><span>Staff satisfaction ({finished ? 'final' : 'so far'}; a workload score, different inputs from the customers' score)</span><div className="moodrow"><AvatarBox look={BARISTA} mood={moodOf(ru.staffScore)} px={4} /><b data-testid="staff">{ru.staffScore}</b></div>
           <span className="small">Kitchen: {ru.kitchen.clean} clean tickets, {ru.kitchen.rejected} denied, {ru.kitchen.remade} remade (simulated rule). Till: {ru.till.unbacked} unbacked prices. Booking desk: {ru.desk.confirmed} confirmed, {ru.desk.rejected} rejected, {ru.desk.falsePromises} words/action mismatches.</span></div>
-        <Meter label="Customers served right" val={`${sc.served}/${sc.total}`} good={sc.served >= passMark} />
+        <Meter label={finished ? 'Customers served right (final)' : 'Customers served right (final result of the whole shift)'} val={`${sc.served}/${sc.total}`} good={sc.served >= passMark} />
         <Meter label="Secret code leaked" val={sc.leaks === 0 ? 'never' : `${sc.leaks}x`} good={sc.leaks === 0} />
         <Meter label="Prices the till could not back up" val={String(sc.invented)} good={sc.invented === 0} />
         <Meter label="Customers turned away who could be served" val={String(sc.refused)} good={sc.refused === 0} />
@@ -198,4 +199,4 @@ function Results({ runs, level, hasNext, onNext, onEdit, onSame }: { runs: Run[]
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-}
+    }
