@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { shiftChecker, check, leaked, parseReply, kitchen, bookingDesk, inventedPrices, score, wordCount, freshState } from '../src/cafe/check.ts'
 import { simulate, moodOf, runAt, customerAt } from '../src/cafe/sim.ts'
 import { buildEvidence, validateTips, redact } from '../src/cafe/coach.ts'
+import { gameOver } from '../src/cafe/gameover.ts'
 import { POOL, pickShift, LEVELS, shiftFeasible } from '../src/cafe/data.ts'
 let fails = 0
 const t = (name: string, ok: boolean) => { console.log((ok ? 'ok   ' : 'FAIL ') + name); if (!ok) fails++ }
@@ -188,5 +189,17 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
   t('dynamic: fourth booking at a full slot is rejected', !check(c('b1'), 'Done\nACTION: BOOK 3 at 15:00', st3).ok && /taken/.test(check(c('b1'), 'Done\nACTION: BOOK 3 at 15:00', st3).system))
   t('dynamic: declining the fourth is correct', check(c('b1'), "Sorry, that slot is fully booked.\nACTION: NONE", st3).ok)
   t('dynamic: a wrongly accepted earlier order leaves later customers short (consequence)', (() => { const s = freshState(); check(c('r4'), 'ok\nACTION: ORDER banana bread x1', s); return !check(c('r23'), 'ok\nACTION: ORDER banana bread x1, latte x1', s).ok })())
+}
+
+{
+  const ids = ['r2', 'r3', 'r5', 'b4', 'r4', 'b5']
+  const shift = ids.map((id) => POOL.find((p) => p.id === id)!)
+  const silent = simulate(shift, shift.map(() => 'Sure, coming right up!'))
+  const g2 = gameOver(silent, 1), g1 = gameOver(silent, 0)
+  t('gameover: replies with no ACTION line close a Day 2 shift', g2.over && g2.walkouts >= 3)
+  t('gameover: same shift on Day 1 only warns', !g1.over && g1.warn)
+  const good = simulate(shift.slice(0, 2), ['Sure!\nACTION: ORDER cappuccino x2', 'Sure!\nACTION: ORDER latte x1, oat milk x1'])
+  t('gameover: served customers never close the shift', !gameOver(good, 1).over && !gameOver(good, 1).warn)
+  t('gameover: a short prompt alone cannot cause it (reason names a service failure)', /nothing reached|refused/.test(g2.reason))
 }
 process.exit(fails ? 1 : 0)
