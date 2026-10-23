@@ -59,3 +59,4 @@ textarea:focus{outline:none;border-color:var(--acc)}
 .m.wide{grid-column:1/-1}
 .ledger{margin:6px 0 0;padding:0;list-style:none;font-size:17px}.ledger li{display:flex;gap:8px;justify-content:space-between;border-top:1px dashed var(--line);padding:3px 0}.ledger .pts{white-space:nowrap}.pos{color:var(--ok)}.neg{color:var(--no)}
 .moodrow{display:flex;align-items:center;gap:10px}
+.coach .tip{border-top:2px dashed var(--line);margin-top:10px;padding-top:8px}.coach .mono{font-family:'VT323',monospace;background:#14111a;border:2px solid var(--line);padding:6px 8px;margin:6px 0;word-break:break-word}
