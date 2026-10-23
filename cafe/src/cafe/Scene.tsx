@@ -159,9 +159,11 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
       {curC && <div className="saybubble aisay" key={'a' + aiSay}><small>YOUR AI</small><span className="saytxt">{aiSay}</span></div>}
       </div>
       {v.status && <div className={'kstat ' + v.status.tone}><b>{v.status.stamp}</b>{v.status.short ? ' · ' + v.status.short : ''}</div>}
+      <details className="feedwrap"><summary>Play-by-play log (optional)</summary>
       <ol className="feed" aria-live="polite">
         {events.slice(Math.max(0, idx - 4), idx).map((e) => <li key={e.idx} className={'ev ' + e.kind}>{e.text}</li>)}
       </ol>
+      </details>
     </div>
   )
 }
