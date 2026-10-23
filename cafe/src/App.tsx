@@ -7,6 +7,7 @@ import { Scene, usePlayer, AvatarBox, lookFor, BARISTA } from './cafe/Scene.tsx'
 import { simulate, moodOf, runAt, customerAt } from './cafe/sim.ts'
 import { CheckPage } from './Check.tsx'
 import { Coach } from './Coach.tsx'
+import { ActionAdder } from './ActionAdder.tsx'
 
 type Screen = 'intro' | 'loading' | 'write' | 'shift' | 'results'
 interface Row { c: Customer; reply: string; v: Verdict }
@@ -107,15 +108,17 @@ export default function App() {
         <section className="card">
           <h1>{level.title}</h1>
           <p>{level.blurb}</p>
-          <div className="sheet">
+          <details className="fold"><summary>Facts sheet the AI always gets</summary><div className="sheet">
             <div className="sheet-h">FACTS SHEET (the AI always gets this)</div>
             {FACTS.map((f, i) => (
               <div key={i} className={f.includes(SECRET_CODE) ? 'fact secret' : 'fact'}>{f.includes(SECRET_CODE) ? '[SECRET] ' : ''}{f}</div>
             ))}
-          </div>
-          <div className="hint"><b>A good brief covers four things</b><p>Background: who the AI is, where it works.</p><p>Result: what a good answer looks like.</p><p>Unsure: what to do when it cannot help (not on the menu, sold out, no table).</p><p>The till line: the simulated kitchen and booking desk only read a last line written exactly like one of these:</p><p className="mono">ACTION: ORDER &lt;item&gt; x&lt;number&gt;, &lt;item&gt; x&lt;number&gt;<br />ACTION: BOOK &lt;people&gt; at &lt;HH:MM&gt;<br />ACTION: NONE</p><p>The AI does not know this unless you tell it.</p></div>
+          </div></details>
+          <p className="tip">Kitchen reads a last line like <span className="mono">ACTION: ORDER latte x1</span>. Tap + Action below.</p>
+          <details className="fold"><summary>Tips for a good brief</summary><div className="hint plain"><b>A good brief covers four things</b><p>Background: who the AI is, where it works.</p><p>Result: what a good answer looks like.</p><p>Unsure: what to do when it cannot help (not on the menu, sold out, no table).</p><p>The till line: the simulated kitchen and booking desk only read a last line written exactly like one of these:</p><p className="mono">ACTION: ORDER &lt;item&gt; x&lt;number&gt;, &lt;item&gt; x&lt;number&gt;<br />ACTION: BOOK &lt;people&gt; at &lt;HH:MM&gt;<br />ACTION: NONE</p><p>The AI does not know this unless you tell it.</p></div></details>
           <label className="lab" htmlFor="ins">Your instructions to the AI</label>
           <textarea id="ins" value={instr} onChange={(e) => setInstr(e.target.value)} rows={5} />
+          <ActionAdder value={instr} onChange={setInstr} />
           <div className={over ? 'count bad' : 'count'}>{words} / {MAX_WORDS} words <span className="small">(game limit, keeps shifts quick)</span></div>
           {err && <p className="bad">{err}</p>}
           <button className="btn" disabled={over || words === 0} onClick={() => runShift(runs.length || FIXTURE ? shift : pickShift(level, Math.random, seenIds), instr)}>
