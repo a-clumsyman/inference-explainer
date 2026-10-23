@@ -25,7 +25,15 @@ export interface Ev {
   stock?: Record<string, number>
   booked?: number
   mood?: Mood
+  /** running totals after this customer has left (only on 'mood' events) */
+  run?: Run
 }
+export interface Run { done: number; customerScore: number; staffScore: number; kitchen: { clean: number; rejected: number; remade: number }; till: { unbacked: number }; desk: { confirmed: number; rejected: number; falsePromises: number } }
+export const START_RUN: Run = { done: 0, customerScore: CUSTOMER_START, staffScore: STAFF_START, kitchen: { clean: 0, rejected: 0, remade: 0 }, till: { unbacked: 0 }, desk: { confirmed: 0, rejected: 0, falsePromises: 0 } }
+/** State of the running totals at an event cursor: nothing changes until a customer has left. */
+export function runAt(events: Ev[], idx: number): Run { let r = START_RUN; for (const e of events.slice(0, idx)) if (e.run) r = e.run; return r }
+/** Which customer (1-based) the cursor is on. */
+export function customerAt(events: Ev[], idx: number): number { return Math.max(1, events.slice(0, idx).filter((e) => e.kind === 'arrive').length) }
 export interface Line { event: string; cust: number; staff: number }
 export interface Ledger { cid: string; lines: Line[]; customer: number; staff: number; mood: Mood }
 export interface Sim {
@@ -102,7 +110,8 @@ export function simulate(shift: Customer[], replies: string[]): Sim {
     staff += st
     const mood = c.req.t === 'none' && c.group === 'unsure' ? 'neutral' : moodOf(cust)
     ledgers.push({ cid: c.id, lines, customer: cust, staff: st, mood })
-    push({ cid: c.id, kind: 'mood', text: `${c.who} leaves ${mood} (${cust})`, mood, stock: v.stockAfter, booked: bookedCount })
+    const run: Run = { done: ledgers.length, customerScore: Math.round(ledgers.reduce((a, l) => a + l.customer, 0) / ledgers.length), staffScore: clamp(staff), kitchen: { ...kitchen }, till: { ...till }, desk: { ...desk } }
+    push({ cid: c.id, kind: 'mood', text: `${c.who} leaves ${mood} (${cust})`, mood, stock: v.stockAfter, booked: bookedCount, run })
   })
   const customerScore = ledgers.length ? Math.round(ledgers.reduce((s, l) => s + l.customer, 0) / ledgers.length) : CUSTOMER_START
   return { events, ledgers, customerScore, staffScore: clamp(staff), kitchen, till, desk }
