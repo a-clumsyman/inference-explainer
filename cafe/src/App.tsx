@@ -159,7 +159,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
   const ru = runAt(sim.events, pl.idx)
   const finished = pl.idx >= sim.events.length
   const [esc, setEsc] = useState<{ busy: boolean; reply?: string; ok?: boolean; sent?: string; err?: string }>({ busy: false })
-  const target = run.rows.find((r) => r.v.outcome === 'never_sent' || r.v.outcome === 'rejected')
+  const target = run.rows.find((r) => ['never_sent', 'rejected', 'differs', 'false_promise'].includes(r.v.outcome))
   async function escalate() {
     if (!target) return
     setEsc({ busy: true })
@@ -232,4 +232,4 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-          }
+}
