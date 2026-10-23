@@ -145,6 +145,7 @@ export function check(c: Customer, reply: string, st: State = freshState()): Ver
   // Can this request be done RIGHT NOW? Decided by the live kitchen/desk state, not by a label on the customer.
   const clone = (): State => ({ stock: { ...st.stock }, booked: { ...st.booked } })
   const imposs = c.req.t === 'order' ? !kitchen(c.req.items, clone()).ok : c.req.t === 'book' ? !bookingDesk(c.req.n, c.req.time, clone()).ok : false
+  // What the kitchen or desk did with the reply, in plain words.
   const fmt = (a: Action) => (a.t === 'missing' ? 'The reply had no kitchen order line, so the kitchen heard nothing.' : a.t === 'unreadable' ? `The kitchen could not read this line: "${(a as any).raw}".` : '')
 
   if (c.req.t === 'ask') {
