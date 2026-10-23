@@ -175,7 +175,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
     <section className="card">
       <h1 className={finished ? (sc.won ? 'win' : 'lose') : ''}>{finished ? (go.over ? 'Shift closed early' : sc.won ? 'Shift survived' : 'Below the pass mark') : 'Replaying the shift'} <small>{level.title}</small></h1>
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
-      {finished && go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} (at customer {go.at} of {sc.total}; the rest are replayed for review)</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
+      {finished && go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} The shift is over at customer {go.at} of {sc.total}. All {sc.total} customers were still run through the AI so you can learn from them. Customers after {go.at} did not count in a real shift, so the score below is a what-if.</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
       {finished && go.warn && <p className="warnline">Warning: {go.reason} From Day 2 this closes the shift.</p>}
       {finished && <Biscuit spot={go.over ? 'over' : 'results'} />}
       <div className="ctl"><button className="btn ghost" onClick={pl.replay}>Replay the shift</button><button className="btn ghost" onClick={pl.skip}>Skip to end</button></div>
