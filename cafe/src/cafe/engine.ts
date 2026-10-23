@@ -92,7 +92,9 @@ export function hosted(): Engine {
       for (let attempt = 0; ; attempt++) {
         const r = await fetch('/api/cafe-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions, customerId }) })
         const j = await r.json().catch(() => ({}))
-        if (r.status === 429 && attempt < 3) { await new Promise((res) => setTimeout(res, 7000)); continue }
+        const spent = /used up/i.test(String(j.error))
+        if (r.status === 429 && !spent && attempt < 2) { await new Promise((res) => setTimeout(res, 7000)); continue }
+        if (r.status === 429) throw new Error('PAUSED: the free request limit is used up for now, so the game is paused. Nothing paid is used. Try again later.')
         if (!r.ok) throw new Error(j.error || `server error ${r.status}`)
         return j.reply as string
       }
