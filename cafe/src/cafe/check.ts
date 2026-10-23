@@ -145,7 +145,7 @@ export function check(c: Customer, reply: string, st: State = freshState()): Ver
   // Can this request be done RIGHT NOW? Decided by the live kitchen/desk state, not by a label on the customer.
   const clone = (): State => ({ stock: { ...st.stock }, booked: { ...st.booked } })
   const imposs = c.req.t === 'order' ? !kitchen(c.req.items, clone()).ok : c.req.t === 'book' ? !bookingDesk(c.req.n, c.req.time, clone()).ok : false
-  const fmt = (a: Action) => (a.t === 'missing' ? 'No ACTION line, so the café system heard nothing.' : a.t === 'unreadable' ? `The café system could not read: "${(a as any).raw}".` : '')
+  const fmt = (a: Action) => (a.t === 'missing' ? 'The reply had no kitchen order line, so the kitchen heard nothing.' : a.t === 'unreadable' ? `The kitchen could not read this line: "${(a as any).raw}".` : '')
 
   if (c.req.t === 'ask') {
     const hit = spoken.length > 0 && new RegExp(c.req.expect, 'i').test(spoken)
@@ -261,4 +261,4 @@ export function hints(instructions: string): string[] {
   if (!/(not on the menu|sold out|only .* left|fully booked|too big|cannot seat|can.t seat)/.test(t)) out.push('Say what to do when an item is not on the menu, is sold out, or a table cannot be booked.')
   if (!/(cafe|café|customer|counter|shop)/.test(t)) out.push('Background: say who the AI is and where it works.')
   return out
-  }
+}
