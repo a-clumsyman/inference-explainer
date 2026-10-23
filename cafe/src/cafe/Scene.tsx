@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { Customer } from './data.ts'
 import type { Ev, Mood } from './sim.ts'
+import { mug, donutPink, syrup } from './props.ts'
 
 export const reducedMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -119,13 +120,25 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
       <svg viewBox="0 0 150 72" role="img" aria-label="The café, drawn from the shift events" shapeRendering="crispEdges">
         <rect width="150" height="46" fill="#e3c08c" /><rect y="30" width="150" height="2" fill="#c9955a" /><rect y="32" width="150" height="14" fill="#c98f5a" />
         <rect y="46" width="150" height="26" fill="#6b4328" />
+        {[52, 66, 80, 94, 108, 122, 136].map((fx) => <rect key={fx} x={fx} y="46" width="1" height="26" fill="#5a3620" opacity="0.45" />)}
+        <rect x="52" y="55" width="46" height="12" fill="#a3483c" /><rect x="52" y="55" width="46" height="1.5" fill="#c96052" /><rect x="52" y="65.5" width="46" height="1.5" fill="#c96052" />
         <rect x="5" y="5" width="32" height="19" fill="#5a3a24" /><rect x="6" y="6" width="30" height="17" fill="#2f3d33" />
         {['LATTE 4.50', 'CAPP 4.00', 'CROIS 3.20'].map((t, i) => <text key={t} x="8" y={12 + i * 5} fontSize="3.6" fill="#f1e7d0" fontFamily="VT323">{t}</text>)}
         <rect x="112" y="5" width="34" height="22" fill="#7a4a2c" /><rect x="114" y="7" width="14" height="18" fill="#8fb4d9" /><rect x="130" y="7" width="14" height="18" fill="#8fb4d9" />
+        <rect x="112" y="27.5" width="34" height="1.5" fill="#b97e50" />
+        <image href={syrup} x="115" y="21.5" width="5.5" height="6" style={{ imageRendering: 'pixelated' }} />
+        <image href={mug} x="123" y="21.5" width="5.5" height="6" style={{ imageRendering: 'pixelated' }} />
+        <image href={mug} x="131" y="21.5" width="5.5" height="6" style={{ imageRendering: 'pixelated' }} />
+        <rect x="40" y="8" width="9" height="11" fill="#5a3a24" /><rect x="41" y="9" width="7" height="9" fill="#f1e7d0" /><image href={donutPink} x="41.5" y="10" width="6" height="6" style={{ imageRendering: 'pixelated' }} />
+        <rect x="120" y="0" width="1" height="3" fill="#3a2a22" /><rect x="117" y="3" width="7" height="3" fill="#a3483c" /><rect x="116" y="6" width="2" height="4" fill="#3d6b34" /><rect x="119" y="6" width="2" height="6" fill="#4f8a44" /><rect x="122" y="6" width="2" height="4" fill="#3d6b34" />
         {[45, 100].map((lx) => <g key={lx}><rect x={lx} y="0" width="1" height="5" fill="#3a2a22" /><rect x={lx - 4} y="5" width="9" height="3" fill="#e8a33d" /><rect className="glow" x={lx - 8} y="8" width="17" height="10" fill="#fff2c0" opacity="0.22" /></g>)}
         <Avatar look={BARISTA} x={70} y={20} w={14} label="Your AI, the barista" />
-        <g className={'chef ' + chef}><Avatar look={CHEF} mood={chef === 'calm' ? 'neutral' : 'upset'} x={93} y={7} w={12} label={chef === 'calm' ? 'The chef, calm' : 'The chef, angry'} />{chef !== 'calm' && <g key={chef + v.denials + v.reworks} className="chefsay"><rect x="104" y="6" width={chef === 'angry' ? 27 : 14} height="9" fill="#fff" stroke="#d9604c" strokeWidth="0.8" /><text x="106" y="12.3" fontSize="4.2" fill="#a3321f" fontFamily="VT323">{chef === 'angry' ? 'NOT AGAIN!' : 'NO.'}</text></g>}</g>
+        <g className={'chef ' + chef}><Avatar look={CHEF} mood={chef === 'calm' ? 'neutral' : 'upset'} x={93} y={10} w={12} label={chef === 'calm' ? 'The chef, calm' : 'The chef, angry'} />{chef !== 'calm' && <g key={chef + v.denials + v.reworks} className="chefsay"><rect x="104" y="6" width={chef === 'angry' ? 27 : 14} height="9" fill="#fff" stroke="#d9604c" strokeWidth="0.8" /><text x="106" y="12.3" fontSize="4.2" fill="#a3321f" fontFamily="VT323">{chef === 'angry' ? 'NOT AGAIN!' : 'NO.'}</text></g>}</g>
+        <rect x="50" y="22.5" width="64" height="2" fill="#b97e50" /><rect x="50" y="24.5" width="64" height="8" fill="#7a4a2c" />
+        <rect x="106" y="17" width="8" height="5.5" fill="#9a9aa8" /><rect x="107.5" y="15.5" width="5" height="2" fill="#c2c2cc" /><rect className="steam" x="109" y="12" width="2" height="3" fill="#fff" opacity="0.6" />
         <rect x="40" y="34" width="72" height="16" fill="#8a5a3a" /><rect x="40" y="32" width="72" height="3" fill="#b97e50" />
+        <image href={mug} x="60" y="26" width="6" height="6" style={{ imageRendering: 'pixelated' }} />
+        <image href={mug} x="97" y="26" width="6" height="6" style={{ imageRendering: 'pixelated' }} />
         <rect className="steam" x="51" y="18" width="2" height="3" fill="#fff" opacity="0.6" /><rect className="steam s2" x="55" y="18" width="2" height="3" fill="#fff" opacity="0.6" /><rect x="46" y="23" width="14" height="10" fill="#9a9aa8" /><rect x="48" y="25" width="4" height="3" fill="#d9604c" />
         <rect x="96" y="27" width="11" height="6" fill="#e8a33d" /><rect x="98" y="28" width="7" height="2" fill="#1d1a24" />
         {/* pass window and ticket */}
@@ -168,14 +181,16 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
   )
 }
 
-/** Steps through the event log one event at a time. Pass total as it grows during a live shift. */
-export function usePlayer(total: number, start = 0, stepMs = 550) {
+/** Steps through the event log one event at a time. Pass total as it grows during a live shift.
+ *  With gates on, the playhead stops at each gate index (just after a customer leaves) until next() is pressed. */
+export function usePlayer(total: number, start = 0, stepMs = 950, gates?: Set<number>, gatesOn = true) {
   const [idx, setIdx] = useState(start)
   const reduced = reducedMotion()
+  const gated = gatesOn && !!gates?.has(idx) && idx < total
   useEffect(() => {
-    if (idx >= total) return
-    const id = setTimeout(() => setIdx((i) => Math.min(total, i + 1)), reduced ? 250 : stepMs)
+    if (idx >= total || gated) return
+    const id = setTimeout(() => setIdx((i) => Math.min(total, i + 1)), reduced ? 300 : stepMs)
     return () => clearTimeout(id)
-  }, [idx, total, stepMs, reduced])
-  return { idx, replay: () => setIdx(0), skip: () => setIdx(total), setIdx }
+  }, [idx, total, stepMs, reduced, gated])
+  return { idx, replay: () => setIdx(0), skip: () => setIdx(total), setIdx, gated, next: () => setIdx((i) => Math.min(total, i + 1)) }
 }
