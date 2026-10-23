@@ -1,6 +1,8 @@
 import { FACTS, SYSTEM_SUFFIX } from './data.ts'
 
 export interface Engine {
+  /** hosted engines answer by customer id so the server can rebuild the prompt */
+  replyFor?(instructions: string, customerId: string): Promise<string>
   id: string
   label: string
   /** true when replies are made up by the page, not a model. Always shown on screen. */
@@ -75,4 +77,22 @@ export function standIn(): Engine {
       return /(sheet|only|not know|don't know)/i.test(ins) ? "I don't have that on my sheet." : 'That would be about 12.50, I think.'
     },
   }
+}
+
+/** Hosted model through this site's own server route. free-tier Gemini model, key kept server-side. */
+export function hosted(): Engine {
+  const e: Engine = {
+    id: 'hosted',
+    label: 'Hosted AI model (Gemini, free tier)',
+    standIn: false,
+    async load(p) { p(1, 'no download') },
+    async reply() { throw new Error('use replyFor') },
+    async replyFor(instructions, customerId) {
+      const r = await fetch('/api/cafe-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions, customerId }) })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(j.error || `server error ${r.status}`)
+      return j.reply as string
+    },
+  }
+  return e
 }
