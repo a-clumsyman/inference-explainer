@@ -89,7 +89,7 @@ export function simulate(shift: Customer[], replies: string[]): Sim {
         cid: c.id, kind: 'nothing_sent', stock: v.stockAfter, booked: bookedCount,
         stamp: cleanRefusal ? 'NO ACTION NEEDED' : 'NOT SENT',
         tone: cleanRefusal ? 'ok' : 'no',
-        short: cleanRefusal ? 'said no clearly, and it could not be done' : a.t === 'none' ? 'sent NONE for something that could be served' : 'no ACTION line, so nothing was understood',
+        short: cleanRefusal ? 'said no clearly, and it could not be done' : a.t === 'none' ? 'the AI answered NONE for something that could be served' : 'the reply never became an order, so the kitchen did nothing',
         text: cleanRefusal ? 'Nothing needed sending: the AI clearly said no, and the café could not do it.' : a.t === 'none' ? 'AI sent NONE: nothing went to the kitchen or desk' : 'No usable ACTION line: nothing went to the kitchen or desk',
       })
     } else {
