@@ -8,6 +8,8 @@ import { simulate, moodOf, runAt, customerAt } from './cafe/sim.ts'
 import { CheckPage } from './Check.tsx'
 import { Coach } from './Coach.tsx'
 import { ActionAdder } from './ActionAdder.tsx'
+import { Biscuit } from './Biscuit.tsx'
+import { gameOver } from './cafe/gameover.ts'
 
 type Screen = 'intro' | 'loading' | 'write' | 'shift' | 'results'
 interface Row { c: Customer; reply: string; v: Verdict }
@@ -84,15 +86,10 @@ export default function App() {
         <section className="card">
           <div className="scene"><Sprite kind="barista" size={10} /><div className="counter" /></div>
           <h1>You run the counter. The AI serves.</h1>
-          <p>You cannot talk to customers yourself. You write the rules, then watch a real AI follow them for one shift.</p>
-          <ul className="how">
-            <li><b>1</b> Write the AI's instructions.</li>
-            <li><b>2</b> 8 customers order food, book tables or ask questions. A simulated kitchen and booking desk checks what your AI sends.</li>
-            <li><b>3</b> See what held up. Fix it. Run it again.</li>
-          </ul>
+          <p>Write the rules. Watch a real AI serve 8 customers.</p>
           {err && <p className="bad">{err}</p>}
           <button className="btn" onClick={start}>{engine.standIn ? 'Start (layout test)' : USE_LOCAL ? 'Start: download the AI (919 MB, once)' : 'Start'}</button>
-          <p className="small">{USE_LOCAL ? 'The AI runs on your computer. Nothing you type leaves it.' : 'Your instructions are sent to a hosted AI model (Google Gemini, free tier) to play the shift. Only the game text goes, nothing else.'}</p>
+          <p className="small">{USE_LOCAL ? 'Runs on your computer.' : 'Your text goes to a free hosted AI (Gemini) to play the shift.'}</p>
         </section>
       )}
 
@@ -107,7 +104,9 @@ export default function App() {
       {screen === 'write' && (
         <section className="card">
           <h1>{level.title}</h1>
-          <p>{level.blurb}</p>
+          <p>{level.blurb.split('. ')[0].replace(/\.$/, '')}.</p>
+          {level.blurb.includes('. ') && <details className="fold"><summary>More</summary><p>{level.blurb}</p></details>}
+          <Biscuit spot="write" />
           <details className="fold"><summary>Facts sheet the AI always gets</summary><div className="sheet">
             <div className="sheet-h">FACTS SHEET (the AI always gets this)</div>
             {FACTS.map((f, i) => (
@@ -131,6 +130,7 @@ export default function App() {
       {screen === 'shift' && (
         <section className="card">
           <h1>Shift in progress</h1>
+          <Biscuit spot="shift" />
           <div className="meter">Customer {Math.min(customerAt(live.events, player.idx), shift.length)} of {shift.length}</div>
           <Scene shift={shift} events={live.events} idx={player.idx} pending={busy && rows.length < shift.length && player.idx >= live.events.length ? shift[rows.length] : null} />
           <div className="ctl"><button className="btn ghost" onClick={player.skip}>Skip animation</button></div>
@@ -158,21 +158,26 @@ function Results({ runs, level, hasNext, standIn, onNext, onEdit, onSame }: { ru
   const shiftC = run.rows.map((r) => r.c)
   const ru = runAt(sim.events, pl.idx)
   const finished = pl.idx >= sim.events.length
+  const go = useMemo(() => gameOver(sim, (level.n ?? 1) - 1), [sim, level])
   return (
     <section className="card">
       <h1 className={finished ? (sc.won ? 'win' : 'lose') : ''}>{finished ? (sc.won ? 'Shift survived' : 'Shift failed') : 'Replaying the shift'} <small>{level.title}</small></h1>
-      {!finished && <p className="small">The result below this scene is the final result of the whole shift. The scene and the two satisfaction scores show only what has happened so far.</p>}
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
+      {finished && go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} (at customer {go.at} of {sc.total})</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
+      {finished && go.warn && <p className="warnline">Warning: {go.reason} From Day 2 this closes the shift.</p>}
+      {finished && <Biscuit spot={go.over ? 'over' : 'results'} />}
       <div className="ctl"><button className="btn ghost" onClick={pl.replay}>Replay the shift</button><button className="btn ghost" onClick={pl.skip}>Skip to end</button></div>
       <div className="meters">
+        <Meter label={finished ? 'Customers served right (final)' : 'Customers served right (final result of the whole shift)'} val={`${sc.served}/${sc.total}`} good={sc.served >= passMark} />
+        <details className="fold"><summary>All the numbers</summary>
         <div className="m wide"><span>Customer satisfaction (game rule, {finished ? 'final, average of ' + sc.total + ' customers' : 'so far, ' + ru.done + ' of ' + sc.total + ' customers have left'})</span><div className="moodrow"><AvatarBox look={lookFor({ id: 'avg' })} mood={moodOf(ru.customerScore)} px={4} /><b data-testid="cust">{ru.customerScore}</b></div></div>
         <div className="m wide"><span>Staff satisfaction ({finished ? 'final' : 'so far'}; a workload score, different inputs from the customers' score)</span><div className="moodrow"><AvatarBox look={BARISTA} mood={moodOf(ru.staffScore)} px={4} /><b data-testid="staff">{ru.staffScore}</b></div>
           <span className="small">Kitchen: {ru.kitchen.clean} clean tickets, {ru.kitchen.rejected} denied, {ru.kitchen.remade} remade (simulated rule). Till: {ru.till.unbacked} unbacked prices. Booking desk: {ru.desk.confirmed} confirmed, {ru.desk.rejected} rejected, {ru.desk.falsePromises} words/action mismatches.</span></div>
-        <Meter label={finished ? 'Customers served right (final)' : 'Customers served right (final result of the whole shift)'} val={`${sc.served}/${sc.total}`} good={sc.served >= passMark} />
-        <Meter label="Secret code leaked" val={sc.leaks === 0 ? 'never' : `${sc.leaks}x`} good={sc.leaks === 0} />
+                <Meter label="Secret code leaked" val={sc.leaks === 0 ? 'never' : `${sc.leaks}x`} good={sc.leaks === 0} />
         <Meter label="Prices the till could not back up" val={String(sc.invented)} good={sc.invented === 0} />
         <Meter label="Customers turned away who could be served" val={String(sc.refused)} good={sc.refused === 0} />
         <Meter label="Said one thing, sent another" val={String(sc.contradictions)} good={sc.contradictions === 0} />
+        </details>
       </div>
       {psc && <p className="small">Last run: {psc.served}/{psc.total} served, {psc.leaks} leaks, {psc.invented} unbacked numbers.</p>}
       <p className="small">To survive: no leaks and at least {Math.min(PASS_SERVED, sc.total - 2)} of {sc.total} served right.</p>
@@ -181,28 +186,28 @@ function Results({ runs, level, hasNext, standIn, onNext, onEdit, onSame }: { ru
           <li key={r.c.id} className={r.v.ok ? 'ok' : 'no'}>
             <div className="l1"><b>{r.v.ok ? (r.v.honest === false ? '?' : '✓') : '✗'}</b> {r.c.who}: {r.c.line}</div>
             <div className="l2">AI said: {r.v.spoken || '(no reply)'}</div>
-            <div className="l2">AI sent to the café system: {r.reply.split(/\r?\n/).filter((l) => /^\s*\**\s*ACTION\s*:/i.test(l)).pop()?.trim() || '(nothing)'}</div>
-            <div className="l3">Simulated café: {r.v.system}</div>
+            <div className="l2"><b>Kitchen got:</b> {r.reply.split(/\r?\n/).filter((l) => /^\s*\**\s*ACTION\s*:/i.test(l)).pop()?.trim() || '(nothing)'}</div>
+            <div className="l3">{r.v.system}</div>
+            <details className="fold"><summary>Why</summary>
             <div className="l3">{r.v.note}{r.v.refused ? ' It turned away a customer it could have served.' : ''}</div>
             <ul className="ledger">{sim.ledgers[i].lines.map((l, k) => <li key={k}><span>{l.event}</span><span className="pts"><span className={l.cust >= 0 ? 'pos' : 'neg'}>customer {l.cust >= 0 ? '+' : ''}{l.cust}</span> / <span className={l.staff >= 0 ? 'pos' : 'neg'}>staff {l.staff >= 0 ? '+' : ''}{l.staff}</span></span></li>)}
-              <li><span>Customer ends at {sim.ledgers[i].customer} ({sim.ledgers[i].mood}). Starts 50.</span><span /></li></ul>
+              <li><span>Customer ends at {sim.ledgers[i].customer} ({sim.ledgers[i].mood}). Starts 50.</span><span /></li></ul></details>
           </li>
         ))}
       </ul>
-      <p className="small">The list above is what happened. We cannot see why the AI answered each way.</p>
-      <Coach instructions={run.instructions} rows={run.rows} ledgers={sim.ledgers} standIn={standIn} reflection={hs} />
+            <Coach instructions={run.instructions} rows={run.rows} ledgers={sim.ledgers} standIn={standIn} reflection={hs} />
       {hs.length > 0 && <div className="hint"><b>Experiments to try</b>{hs.map((h) => <p key={h}>{h}</p>)}</div>}
       {sc.won && hasNext && <button className="btn" onClick={onNext}>Next: Day 2</button>}
       <button className="btn" onClick={onEdit}>Change the instructions</button>
       <button className="btn ghost" onClick={onSame}>Same instructions, same customers (see luck)</button>
-      <p className="small">
+      <details className="fold"><summary>How this works</summary><p className="small">
         The AI answers differently each time, so the same instructions can score differently. The kitchen, till and booking desk are a small simulation written in code, not real orders or payments. Satisfaction scores are game rules with weights chosen by the designer, not measurements of real feelings; every point above comes from a logged event. The leak check looks for the code itself, so a code spelled out in a sneaky way could slip past it. "Survived" means it held up in this shift, not that it is secure.
         
-      </p>
+      </p></details>
     </section>
   )
 }
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-}
+  }
