@@ -1,5 +1,11 @@
 import type { Sim } from './sim.ts'
 
+/** Customers that must be served right to survive a shift of `planned` customers.
+ *  Full 8-customer shifts keep the intended 6-of-8 bar; shorter shifts allow up to two misses but never let 0 right win. */
+export function passMarkFor(planned: number): number {
+  return Math.max(1, Math.min(6, planned - 2))
+}
+
 /** Game rules (designer-chosen, tunable). Only logged service failures count. Prompt length never does. */
 export const WALKOUTS_MAX = 3
 export const REFUSALS_IN_A_ROW = 4
