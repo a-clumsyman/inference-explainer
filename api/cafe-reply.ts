@@ -250,7 +250,7 @@ let used = 0
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
-  const { instructions, customerId, model } = req.body ?? {}
+  const { instructions, customerId, model, escalate } = req.body ?? {}
   // Optional model pick, only from these Free-tier models (used for the same-scenario comparison). Anything else falls back to the default.
   const useModel = ALLOWED_MODELS.includes(model) ? model : MODEL
   const c = POOL.find((p) => p.id === customerId)
@@ -269,7 +269,7 @@ export default async function handler(req: any, res: any) {
     headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: 'user', parts: [{ text: c.line }] }],
+      contents: [{ role: 'user', parts: [{ text: escalate === true ? `${c.line}\n\nThe customer waited and nothing useful happened. They come back, annoyed: "That is the second time. Sort this out now."` : c.line }] }],
       generationConfig: { maxOutputTokens: 300, temperature: 0.7, thinkingConfig: { thinkingLevel: 'minimal' } },
     }),
   })
