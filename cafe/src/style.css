@@ -57,9 +57,13 @@ textarea:focus{outline:none;border-color:var(--acc)}
 .saybubble .saytxt{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .saybubble.custsay{left:20%;bottom:44%}
 .saybubble.custsay .saytxt{-webkit-line-clamp:2}
-.saybubble.aisay{left:3%;top:3%}
+.saybubble.aisay{left:2%;top:2%;max-width:31%}
 @keyframes saypop{from{transform:scale(.7);opacity:0}}
-@media (max-width:480px){.saybubble{font-size:14px;padding:3px 5px;max-width:47%}}.feed{list-style:none;margin:8px 0 0;padding:0;font-size:17px;color:var(--dim);min-height:5.2em}
+@media (max-width:480px){.saybubble{font-size:14px;padding:3px 5px}
+.saybubble.aisay{left:2%;top:2%;max-width:30%;font-size:13px}
+.saybubble.custsay{left:56%;bottom:10%;max-width:42%}
+.saybubble.custsay .saytxt{-webkit-line-clamp:3}}
+.feedwrap{margin:8px 0 0}.feedwrap summary{cursor:pointer;font-family:'Silkscreen';font-size:11px;color:var(--dim);padding:4px 0}.feed{list-style:none;margin:8px 0 0;padding:0;font-size:17px;color:var(--dim);min-height:5.2em}
 .feed .ev{border-left:3px solid var(--line);padding-left:6px;margin:2px 0}.feed .ticket_denied,.feed .booking_rejected,.feed .rework{border-color:var(--no);color:#e8a99c}.feed .ticket_received,.feed .booking_confirmed,.feed .prep_done{border-color:var(--ok)}
 .ticket{animation:slidein .45s ease-out}.ticket.denied{animation:stamp .45s ease-out}.prep{transform-origin:left;animation-name:fill;animation-timing-function:linear;animation-fill-mode:forwards}
 .cust{animation:hop .35s ease-out}.seat{animation:pop .35s ease-out}
@@ -101,3 +105,4 @@ textarea:focus{outline:none;border-color:var(--acc)}
 .esc{border:4px solid var(--no);padding:8px 12px;margin:10px 0;background:#241a22}.esc p{margin:6px 0}.esc .btn{margin:6px 0}
 
 .adder-box .mono{font-size:15px;line-height:1.35}
+.try{font-size:17px;color:var(--ink);background:#2a2440;border-left:3px solid var(--acc);padding:6px 8px;margin:6px 0}
