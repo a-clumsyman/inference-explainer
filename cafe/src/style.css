@@ -118,6 +118,7 @@ textarea:focus{outline:none;border-color:var(--acc)}
 .speechctl{display:flex;align-items:center;gap:12px}
 .speechctl .btn{margin:0;width:auto;padding:10px 18px}
 .speechctl .btn.start{background:var(--ok)}
+.speech .btn.ghost{color:#2a1d12;border-color:#2a1d12}
 .speechctl .btn.next{margin-left:auto}
 .speech .dots{display:flex;gap:5px}
 .speech .dots i{width:8px;height:8px;background:#c9bda6;display:block}
