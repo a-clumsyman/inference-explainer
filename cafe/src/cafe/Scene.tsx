@@ -155,8 +155,8 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
         {/* stock */}
         <rect x="114" y="30" width="30" height="12" fill="#4a3326" /><text x="116" y="35" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">CROISSANT {v.stock.croissant}</text><text x="116" y="40" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">BANANA BR. {v.stock['banana bread']}</text>
       </svg>
-      {curC && <div className="say custsay" key={'c' + custSay}><small>{curC.who}</small><span className="saytxt">{custSay}</span></div>}
-      {curC && <div className="say aisay" key={'a' + aiSay}><small>YOUR AI</small><span className="saytxt">{aiSay}</span></div>}
+      {curC && <div className="saybubble custsay" key={'c' + custSay}><small>{curC.who}</small><span className="saytxt">{custSay}</span></div>}
+      {curC && <div className="saybubble aisay" key={'a' + aiSay}><small>YOUR AI</small><span className="saytxt">{aiSay}</span></div>}
       </div>
       {v.status && <div className={'kstat ' + v.status.tone}><b>{v.status.stamp}</b>{v.status.short ? ' · ' + v.status.short : ''}</div>}
       <ol className="feed" aria-live="polite">
