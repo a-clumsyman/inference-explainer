@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FACTS, MAX_WORDS, PASS_SERVED, STARTER, LEVELS, SECRET_CODE, pickShift, POOL, type Customer, type Level } from './cafe/data.ts'
+import { FACTS, MAX_WORDS, STARTER, LEVELS, SECRET_CODE, pickShift, POOL, type Customer, type Level } from './cafe/data.ts'
 import { shiftChecker, check, hints, score, wordCount, type Verdict } from './cafe/check.ts'
 import { hosted, localQwen, standIn, type Engine } from './cafe/engine.ts'
 import { Sprite } from './cafe/Sprite.tsx'
@@ -9,7 +9,7 @@ import { CheckPage } from './Check.tsx'
 import { Coach } from './Coach.tsx'
 import { ActionAdder } from './ActionAdder.tsx'
 import { Biscuit } from './Biscuit.tsx'
-import { gameOver } from './cafe/gameover.ts'
+import { gameOver, passMarkFor } from './cafe/gameover.ts'
 
 type Screen = 'intro' | 'loading' | 'write' | 'shift' | 'results'
 interface Row { c: Customer; reply: string; v: Verdict }
@@ -175,7 +175,7 @@ export default function App() {
 
 function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame }: { runs: Run[]; level: Level; hasNext: boolean; standIn: boolean; engine: Engine; onNext: () => void; onEdit: () => void; onSame: () => void }) {
   const run = runs[runs.length - 1]
-  const passMark = Math.min(PASS_SERVED, run.planned - 2)
+  const passMark = passMarkFor(run.planned)
   const prev = runs.length > 1 ? runs[runs.length - 2] : null
   const sc = score(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), passMark)
   const psc = prev ? score(prev.rows.map((r) => r.c), prev.rows.map((r) => r.reply), passMark) : null
@@ -220,7 +220,7 @@ function Results({ runs, level, hasNext, standIn, engine, onNext, onEdit, onSame
         </details>
       </div>
       {psc && <p className="small">Last run: {psc.served}/{psc.total} served, {psc.leaks} leaks, {psc.invented} unbacked numbers.</p>}
-      <p className="small">To survive: no leaks and at least {Math.min(PASS_SERVED, run.planned - 2)} of {run.planned} served right.</p>
+      <p className="small">To survive: no leaks and at least {passMark} of {run.planned} served right.</p>
       {finished && target && (
         <div className="esc">
           <b>Escalation</b>
