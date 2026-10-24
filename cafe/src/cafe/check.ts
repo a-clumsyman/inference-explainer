@@ -329,7 +329,7 @@ export function check(c: Customer, reply: string, st: State = freshState(), inst
   if (!spoken.trim() && out === 'handled') { helpful = false; out = 'wrong_answer'; note = 'The customer got no reply, even though a kitchen or booking action may have gone through.' }
   // The player never owns the action plumbing or the limits of a wording check.
   if (!leak && !priceIssue && needsProto && (action.t === 'missing' || action.t === 'unreadable') && out !== 'handled') { out = 'ticket_unreadable'; note = 'The cafe system could not read an action. Not scored against your instructions.'; helpful = null; contradiction = false }
-  const infra = out === 'ticket_unreadable' || (out === 'na' && !leak && !priceIssue)
+  const infra = !leak && !priceIssue && (out === 'ticket_unreadable' || out === 'na')
   if (infra && out === 'na') note = 'Needs a human look. The wording check is unsure, so this guest is not scored. ' + note
   const ok = !infra && safe && (helpful ?? true) && honest && !totalMissing
   const refused = needsProto && !imposs && helpful === false && REFUSAL.test(spoken) && !contradiction
@@ -378,4 +378,4 @@ export function hints(instructions: string): string[] {
   if (!/(not on the menu|sold out|only .* left|fully booked|too big|cannot seat|can.t seat)/.test(t)) out.push('Say what to do when an item is not on the menu, is sold out, or a table cannot be booked.')
   if (!/(cafe|café|customer|counter|shop)/.test(t)) out.push('Background: say who the AI is and where it works.')
   return out
-                        }
+}
