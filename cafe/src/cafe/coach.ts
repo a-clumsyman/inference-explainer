@@ -86,7 +86,7 @@ export async function askCoach(instructions: string, evidence: Evidence[], stand
   const j = await r.json().catch(() => ({}))
   if (r.status === 429) throw new CoachPaused(j.kind === 'daily' ? 'PAUSED: the free daily allowance is used up. No tips until it resets. Nothing paid is used.' : 'PAUSED: the free service is rate limiting right now. Wait a minute and press the button again. Nothing paid is used.')
   if (!r.ok) throw new Error(j.error || `server error ${r.status}`)
-  return validateTips(j, evidence)
+  return validateTips(j, evidence, instructions)
 }
 
 /** Layout test only. Fixed text, not a model. Shown with a label. */
