@@ -240,3 +240,6 @@ textarea:focus{outline:none;border-color:var(--acc)}
 .reviewbar .rb-row{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0}
 .reviewbar .btn{width:auto;flex:1 1 auto;margin:0;padding:8px 10px;font-size:13px;box-shadow:3px 3px 0 #0e0c13}
 .reviewbar p{margin:4px 0 0}
+
+/* room to scroll the last lines clear of the sticky review bar */
+.card:has(> .reviewbar){padding-bottom:140px}
