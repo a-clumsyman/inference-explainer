@@ -460,4 +460,5 @@ t('audit actual alternative basket with two offered choices is backed', check(c(
   t('save: pasted credential-like text never persisted', encodeProgress({...p,instr:'password=private-example'}) === null)
   t('save: empty storage starts fresh', decodeProgress(null) === null)
 }
+t('fairness: plumbing cannot hide a literal leak', (() => { const v=check(c('r1'),'MOCHA-7\nACTION: ORDR latte'); return !v.infra && !v.ok && !v.safe })())
 process.exit(fails ? 1 : 0)
