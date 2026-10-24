@@ -13,7 +13,7 @@ import { Story } from './Story.tsx'
 import { click, ding, chaChing, bookChime, buzz, fanfare, sad, startMusic, muted as soundMuted, setMuted } from './cafe/sound.ts'
 
 type Screen = 'story' | 'meet' | 'loading' | 'write' | 'shift' | 'review' | 'result'
-interface Row { c: Customer; reply: string; v: Verdict }
+interface Row { c: Customer; reply: string; v: Verdict; instructions?: string }
 
 const params = new URLSearchParams(location.search)
 const USE_STANDIN = params.get('standin') === '1'
@@ -38,7 +38,7 @@ export default function App() {
   const [finishedRun, setFinishedRun] = useState<Run | null>(null)
   const seenIds = useRef<string[]>([]).current
   const cancel = useRef(false)
-  const live = useMemo(() => simulate(shift.slice(0, rows.length), rows.map((r) => r.reply), partial?.instructions ?? instr), [shift, rows, instr, partial])
+  const live = useMemo(() => simulate(shift.slice(0, rows.length), rows.map((r) => r.reply), partial?.instructions ?? instr, false, rows.map(r => r.instructions)), [shift, rows, instr, partial])
   const player = usePlayer(live.events, 0)
   // customers whose whole moment has played out on screen; the transcript only shows these,
   // so scene, cards and meter move together, one customer at a time
@@ -71,7 +71,7 @@ export default function App() {
   useEffect(() => { if (rows.length === 0) player.setIdx(0) }, [rows.length])
 
   const words = wordCount(instr)
-  const over = words > MAX_WORDS
+  const over = words > MAX_WORDS || instr.length > 2400
 
   async function start() {
     startMusic()
@@ -90,11 +90,11 @@ export default function App() {
     startAt.current = doneRows.length
     setFinishedRun(null); player.resume()
     setRunId((x) => x + 1)
-    setShift(s); setRows([...doneRows]); setScreen('shift'); setBusy(true)
+    setShift(s); setRows(checkedRows(doneRows, text)); setScreen('shift'); setBusy(true)
     const acc: Row[] = checkedRows(doneRows, text)
     const chk = shiftChecker(text)
     // rebuild the kitchen/desk state from the customers already served, so the checker continues where the shift stopped. No customer is re-sent to the AI.
-    for (const r of doneRows) chk(r.c, r.reply)
+    for (const r of doneRows) chk(r.c, r.reply, r.instructions ?? text)
     try {
       for (const c of s.slice(doneRows.length)) {
         if (cancel.current) return
@@ -104,17 +104,17 @@ export default function App() {
           throw new Error('forced test error')
         }
         const reply = await (engine.replyFor ? engine.replyFor(text, c.id, false, acc.length ? { stock: acc[acc.length - 1].v.stockAfter, booked: acc[acc.length - 1].v.bookedAfter } : undefined) : engine.reply(text, c.line))
-        acc.push({ c, reply, v: chk(c, reply) })
+        acc.push({ c, reply, v: chk(c, reply), instructions: text })
         setRows([...acc])
-        if (gameOver(simulate(acc.map((r) => r.c), acc.map((r) => r.reply), text), (level.n ?? 1) - 1).over) break
+        if (gameOver(simulate(acc.map((r) => r.c), acc.map((r) => r.reply), text, false, acc.map(r => r.instructions)), (level.n ?? 1) - 1).over) break
       }
       seenIds.push(...acc.map((r) => r.c.id))
       setPartial(null)
-      setFinishedRun({ instructions: text, rows: acc, planned: s.length })
+      setFinishedRun({ instructions: text, rows: acc, planned: s.length, customers: s })
     } catch (e) {
       const msg = String((e as Error).message ?? e)
-      setPartial(acc.length ? { shift: s, rows: acc, instructions: text } : null)
-      setErr(msg.startsWith('PAUSED:') ? msg : acc.length
+      setPartial({ shift: s, rows: acc, instructions: text })
+      setErr(msg.startsWith('PAUSED:') ? msg + ` ${acc.length} of ${s.length} customers are saved. Resume continues at customer ${acc.length + 1} with the same instructions.` : acc.length
         ? `The free AI stumbled after ${acc.length} of ${s.length} customers (the service said: "${msg}"). The customers already served are saved - Resume carries on from customer ${acc.length + 1}; nobody is served twice.`
         : `The free AI could not start the shift (the service said: "${msg}"). Nothing was sent yet - try again in a moment.`)
       setScreen('write')
@@ -136,7 +136,7 @@ export default function App() {
     const run = runs[runs.length - 1]
     if (!run) return
     setErr('')
-    playShift(run.rows.map((r) => r.c), instr, run.rows.slice(0, k))
+    playShift(run.customers ?? run.rows.map((r) => r.c), instr, run.rows.slice(0, k))
   }
 
   // Network completion never bypasses the on-screen story. Let the final reaction stay
@@ -203,7 +203,7 @@ export default function App() {
             </div></details>
           </details>
           <label className="lab" htmlFor="ins">Your instructions to the AI</label>
-          <textarea id="ins" value={instr} onChange={(e) => setInstr(e.target.value)} rows={5} />
+          <textarea id="ins" maxLength={2400} value={instr} onChange={(e) => setInstr(e.target.value)} rows={5} />
           <div className={over ? 'count bad' : 'count'}>{words} / {MAX_WORDS} words <span className="small">(game limit, keeps shifts quick)</span></div>
           {err && <p className="bad">{err}</p>}
           {partial && <button className="btn" disabled={busy} onClick={resumeShift}>Resume the shift at customer {partial.rows.length + 1} of {partial.shift.length} (same instructions)</button>}
@@ -240,7 +240,7 @@ export default function App() {
                     <div className="l2">AI said: {r.v.spoken || '(no reply)'}</div>
                     <div className="l3">{short}</div>
                     <details className="fold"><summary>Play-by-play</summary>
-                      <ul className="ledger">{simulate([r.c], [r.reply], instr).events.filter((e) => e.kind !== 'mood').map((e, k) => <li key={k}>{e.text}</li>)}</ul>
+                      <ul className="ledger">{live.events.filter((e) => e.cid === r.c.id && e.kind !== 'mood').map((e, k) => <li key={k}>{e.text}</li>)}</ul>
                     </details>
                   </details>
                 </li>
@@ -255,7 +255,7 @@ export default function App() {
       {screen === 'review' && runs.length > 0 && (
         <Review
           run={runs[runs.length - 1]}
-          sim={simulate(runs[runs.length - 1].rows.map((r) => r.c), runs[runs.length - 1].rows.map((r) => r.reply), runs[runs.length - 1].instructions)}
+          sim={simulate(runs[runs.length - 1].rows.map((r) => r.c), runs[runs.length - 1].rows.map((r) => r.reply), runs[runs.length - 1].instructions, false, runs[runs.length - 1].rows.map(r => r.instructions))}
           instr={instr}
           standIn={!!engine.standIn}
           busy={busy}
@@ -277,9 +277,9 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
   const run = runs[runs.length - 1]
   const passMark = passMarkFor(run.planned)
   const prev = runs.length > 1 ? runs[runs.length - 2] : null
-  const sc = score(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), passMark, run.instructions)
-  const psc = prev ? score(prev.rows.map((r) => r.c), prev.rows.map((r) => r.reply), passMark, prev.instructions) : null
-  const sim = useMemo(() => simulate(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), run.instructions), [run])
+  const sc = score(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), passMark, run.instructions, false, run.rows.map(r => r.instructions))
+  const psc = prev ? score(prev.rows.map((r) => r.c), prev.rows.map((r) => r.reply), passMark, prev.instructions, false, prev.rows.map(r => r.instructions)) : null
+  const sim = useMemo(() => simulate(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), run.instructions, false, run.rows.map(r => r.instructions)), [run])
   const pl = usePlayer(sim.events, sim.events.length)
   const shiftC = run.rows.map((r) => r.c)
   const ru = runAt(sim.events, pl.idx)
