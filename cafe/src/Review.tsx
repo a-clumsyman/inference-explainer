@@ -24,7 +24,7 @@ const STAMP: Record<string, { label: string; cls: string }> = {
   na: { label: 'NOT ASSESSED', cls: 'dim' },
 }
 
-export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplayFrom, onEditMyself, onDone }: {
+export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplayFrom, onPractice, onEditMyself, onDone }: {
   run: Run
   sim: Sim
   instr: string
@@ -32,6 +32,7 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
   busy: boolean
   onInstrChange: (v: string) => void
   onReplayFrom: (k: number) => void
+  onPractice: (k:number)=>void
   onEditMyself: () => void
   onDone: () => void
 }) {
@@ -148,7 +149,7 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
         </div>
         <div className="rb-row">
           <button className="btn ghost" disabled={n === 0} onClick={() => setN(n - 1)}>&lt; Back</button>
-          <button className="btn ghost" disabled={busy} onClick={() => onReplayFrom(m.i)}>Replay</button>
+          <button className="btn" disabled={busy} onClick={()=>onPractice(m.i)}>Repair this customer</button><button className="btn ghost" disabled={busy} onClick={() => onReplayFrom(m.i)}>Replay from here</button>
           <button className="btn ghost" disabled={n >= moments.length - 1} onClick={() => setN(n + 1)}>Next &gt;</button>
           <button className="btn ghost" onClick={onDone}>Done</button>
         </div>
