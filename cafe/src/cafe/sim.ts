@@ -47,7 +47,7 @@ export function moodGates(events: Ev[]): Set<number> {
 /** Which customer (1-based) the cursor is on. */
 export function customerAt(events: Ev[], idx: number): number { return Math.max(1, events.slice(0, idx).filter((e) => e.kind === 'arrive').length) }
 export interface Line { event: string; cust: number; staff: number }
-export interface Ledger { cid: string; outcome: Outcome; lines: Line[]; customer: number; staff: number; mood: Mood }
+export interface Ledger { cid: string; outcome: Outcome; lines: Line[]; customer: number; staff: number; mood: Mood; assessed?: boolean }
 export interface Sim {
   events: Ev[]
   ledgers: Ledger[]
@@ -90,12 +90,12 @@ export function simulate(shift: Customer[], replies: string[], instructions = ''
       push({ cid: c.id, kind: 'booking_confirmed', text: v.system.split(' Till:')[0], stock: v.stockAfter, booked: bookedCount, stamp: 'BOOKED', short: v.system.split(' Till:')[0].replace('Booking desk confirmed ', '') })
     } else if (a.t === 'book') {
       push({ cid: c.id, kind: 'booking_rejected', text: v.system.split(' Till:')[0], stock: v.stockAfter, booked: bookedCount, stamp: 'DENIED', tone: 'no', short: v.system.split(' Till:')[0].replace('Booking desk rejected it: ', '') })
-    } else if (v.outcome === 'ticket_unreadable') {
+    } else if (v.infra) {
       push({
         cid: c.id, kind: 'ticket_unreadable', stock: v.stockAfter, booked: bookedCount,
-        stamp: 'UNREADABLE TICKET', tone: 'no',
+        stamp: v.outcome === 'na' ? 'NEEDS A HUMAN LOOK' : 'SYSTEM STUMBLE', tone: 'ok',
         short: 'the café system stumbled, not your words',
-        text: 'The cafe system could not read the ticket - a system stumble, not your words. The customer heard the reply; this moment is not scored against you.',
+        text: v.note,
       })
     } else if (c.req.t === 'order' || c.req.t === 'book') {
       const cleanRefusal = (a.t === 'none' || a.t === 'missing') && v.outcome === 'handled'
@@ -142,14 +142,15 @@ export function simulate(shift: Customer[], replies: string[], instructions = ''
     if (o === 'rejected' && a.t === 'book') desk.rejected++
     if (v.deskOk && a.t === 'book') desk.confirmed++
     if (o === 'false_promise') { if (c.req.t === 'book') desk.falsePromises++; else kitchen.falsePromises++ }
+    if (v.infra) { lines.splice(0, lines.length, { event: v.note, cust: 0, staff: 0 }) }
     const cust = clamp(CUSTOMER_START + lines.reduce((s, l) => s + l.cust, 0))
     const st = lines.reduce((s, l) => s + l.staff, 0)
     staff += st
     const mood = c.req.t === 'none' && c.group === 'unsure' ? 'neutral' : moodOf(cust)
-    ledgers.push({ cid: c.id, outcome: o, lines, customer: cust, staff: st, mood })
-    const run: Run = { done: ledgers.length, customerScore: Math.round(ledgers.reduce((a, l) => a + l.customer, 0) / ledgers.length), staffScore: clamp(staff), kitchen: { ...kitchen }, till: { ...till }, desk: { ...desk } }
+    ledgers.push({ cid: c.id, outcome: o, lines, customer: cust, staff: st, mood, assessed: !v.infra })
+    const run: Run = { done: ledgers.length, customerScore: (ledgers.some(l => l.assessed) ? Math.round(ledgers.filter(l => l.assessed).reduce((a, l) => a + l.customer, 0) / ledgers.filter(l => l.assessed).length) : CUSTOMER_START), staffScore: clamp(staff), kitchen: { ...kitchen }, till: { ...till }, desk: { ...desk } }
     push({ cid: c.id, kind: 'mood', text: `${c.who} leaves ${mood} (${cust})`, mood, stock: v.stockAfter, booked: bookedCount, run })
   })
-  const customerScore = ledgers.length ? Math.round(ledgers.reduce((s, l) => s + l.customer, 0) / ledgers.length) : CUSTOMER_START
+  const customerScore = ledgers.some(l => l.assessed) ? Math.round(ledgers.filter(l => l.assessed).reduce((s, l) => s + l.customer, 0) / ledgers.filter(l => l.assessed).length) : CUSTOMER_START
   return { events, ledgers, customerScore, staffScore: clamp(staff), kitchen, till, desk }
-}
+                                                                                }
