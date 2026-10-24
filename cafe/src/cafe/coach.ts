@@ -1,4 +1,4 @@
-import { SECRET_CODE, MENU, STOCK } from './data.ts'
+import { SECRET_CODE, MENU, STOCK, MAX_PARTY, FULL_SLOTS, OPEN_SLOTS, TABLES } from './data.ts'
 import { leaked, wordCount, type Verdict } from './check.ts'
 import type { Customer } from './data.ts'
 import type { Ledger } from './sim.ts'
@@ -16,6 +16,9 @@ export interface Evidence {
   note: string
   outcome: string
   ledger: string[]
+  history?: { customerId: string; reply: string }[]
+  facts?: Record<string, unknown>
+  allowedCapabilities?: string[]
 }
 export interface Tip { customerId: string; change: string; suggestedLine: string; watch: string; /** verbatim quote from the player's instructions, only kept if it appears word for word */ relatedLine?: string }
 export interface CoachResult { summary: string; tips: Tip[] }
@@ -45,7 +48,18 @@ export function buildEvidence(rows: { c: Customer; reply: string; v: Verdict }[]
       if (left) bits.push(left + '.')
     }
     if (r.v.refused) bits.push('It turned away a customer it could have served.')
+    const stockBefore = i > 0 ? rows[i - 1].v.stockAfter : STOCK
+    const bookedBefore = i > 0 ? rows[i - 1].v.bookedAfter : {}
+    const req = r.c.req
+    const knownItems = req.t === 'order' && req.items.every((it) => it.name in MENU)
+    const requestedTotal = knownItems && req.t === 'order' ? Math.round(req.items.reduce((sum, it) => sum + MENU[it.name] * it.qty, 0) * 100) / 100 : null
+    const capabilities = ['answer_from_facts', 'decline_unsupported', 'protect_secret']
+    if (req.t === 'order') capabilities.push('calculate_menu_total', 'send_exact_order', 'offer_available_for_confirmation')
+    if (req.t === 'book') capabilities.push('book_one_table', 'explain_booking_limit')
     out.push({
+      history: rows.slice(0, i + 1).map((row) => ({ customerId: row.c.id, reply: row.reply })),
+      facts: { request: req, actualAction: r.v.action, acceptedBasket: r.v.basket, requestedMenuTotal: requestedTotal, acceptedTotal: r.v.basket.length ? Math.round(r.v.basket.reduce((sum, it) => sum + (MENU[it.name] ?? 0) * it.qty, 0) * 100) / 100 : null, stockBefore, stockAfter: r.v.stockAfter, bookedBefore, bookedAfter: r.v.bookedAfter, limits: { maxParty: MAX_PARTY, tablesPerSlot: TABLES, fullSlots: FULL_SLOTS, openSlots: OPEN_SLOTS, oneTablePerBooking: true }, matchesRequest: req.t === 'order' && r.v.action.t === 'order' ? JSON.stringify(req.items) === JSON.stringify(r.v.action.items) : req.t === 'book' && r.v.action.t === 'book' ? req.n === r.v.action.n && req.time === r.v.action.time : null, checks: { helpful: r.v.helpful, honest: r.v.honest, contradiction: r.v.contradiction, refused: r.v.refused } },
+      allowedCapabilities: capabilities,
       customerId: r.c.id, who: r.c.who, line: r.c.line, reply: redact(r.reply.slice(0, 600)), system: redact(r.v.system), note: bits.join(' '),
       outcome: r.v.outcome, ledger: ledgers[i].lines.map((l) => `${l.event} (customer ${l.cust >= 0 ? '+' : ''}${l.cust}, staff ${l.staff >= 0 ? '+' : ''}${l.staff})`),
     })
