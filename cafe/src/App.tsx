@@ -26,6 +26,7 @@ const loadSaved = () => { try { return decodeProgress(localStorage.getItem(stora
 
 export default function App() {
   const [saved] = useState(loadSaved)
+  const [showIntro, setShowIntro] = useState(params.get('intro') === '1')
   const [saveNotice, setSaveNotice] = useState('')
   const [resetOpen, setResetOpen] = useState(false)
   const engine = useMemo<Engine>(() => (USE_STANDIN ? standIn() : USE_LOCAL ? localQwen() : hosted()), [])
@@ -172,6 +173,8 @@ export default function App() {
   }, [screen, finishedRun, busy, player.paused, player.idx, live, level.n])
   useEffect(() => { window.scrollTo(0, 0) }, [screen])
 
+  if (showIntro) return <main className="wrap"><header className="top"><span className="logo">CORNER CAFÉ</span></header><Story startLabel="Back to my café" onStart={() => setShowIntro(false)}/><button className="btn ghost" onClick={() => setShowIntro(false)}>Back to my café</button><p className="small">Watching the intro does not reset your instructions or progress.</p></main>
+
   if (params.get('check') === '1') return <main className="wrap"><CheckPage engine={engine} /></main>
   return (
     <main className="wrap">
@@ -180,7 +183,7 @@ export default function App() {
         <span className="tag">{engine.standIn ? 'STAND-IN, NOT A MODEL' : USE_LOCAL ? 'real AI, small and local' : 'real AI, hosted'}</span>
         <button type="button" className="soundbtn" aria-label={isMuted ? 'Turn sound on' : 'Turn sound off'} onClick={() => { const m = !isMuted; setMuted(m); setIsMuted(m); if (!m) click() }}>{isMuted ? '\u{1F507}' : '\u{1F50A}'}</button>
       </header>
-      <div className="small" role="status">Game text and progress only. Don't enter passwords or personal secrets. {saveNotice} <button className="btn ghost" disabled={busy} onClick={() => setResetOpen(true)}>Reset progress</button></div>
+      <div className="small" role="status">Game text and progress only. Don't enter passwords or personal secrets. {saveNotice} <button className="btn ghost" disabled={busy} onClick={() => setResetOpen(true)}>Reset progress</button>{screen !== 'story' && <button className="btn ghost" disabled={busy} onClick={() => setShowIntro(true)}>Watch intro</button>}</div>
       {resetOpen && <section className="card"><p>Reset saved instructions and all game progress on this browser? This cannot be undone.</p><button className="btn" onClick={resetProgress}>Reset everything</button><button className="btn ghost" onClick={() => setResetOpen(false)}>Keep my progress</button></section>}
 
       {screen === 'story' && (
@@ -395,4 +398,4 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-              }
+          }
