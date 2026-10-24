@@ -1,4 +1,4 @@
-import {conversationReady} from './cafe/conversation.ts'
+import {conversationReady,customerAnswer} from './cafe/conversation.ts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FACTS, MAX_WORDS, STARTER, CONTRACT, LEVELS, SECRET_CODE, pickShift, POOL, type Customer, type Level } from './cafe/data.ts'
 import { shiftChecker, checkedRows, reviewMoments, check, score, wordCount, describeAction, parseReply, type Verdict } from './cafe/check.ts'
@@ -144,7 +144,7 @@ export default function App() {
         if(conversationReady(c,parseReply(reply).spoken,parseReply(reply).action.t)){
           const first=reply;setChoice({c,first});await new Promise<boolean>(resolve=>{choiceResolve.current=resolve});setChoice(null);choiceResolve.current=null
           const state=acc.length?{stock:acc.at(-1)!.v.stockAfter,booked:acc.at(-1)!.v.bookedAfter}:undefined
-          const next=engine.replyFor?await engine.replyFor(text,c.id,false,state,true,first):await engine.reply(text,c.clarify!)
+          const next=engine.replyFor?await engine.replyFor(text,c.id,false,state,true,first):await engine.reply(text,customerAnswer(c))
           reply=first+'\n--- CUSTOMER CHOICE ---\n'+next
         }
         acc.push({ c, reply, v: chk(c, reply), instructions: text })
@@ -269,7 +269,7 @@ export default function App() {
           <Biscuit spot="shift" />
           <div className="meter">Customer {Math.min(busy && player.idx >= live.events.length ? rows.length + 1 : customerAt(live.events, player.idx), shift.length)} of {shift.length}</div>
           <Scene shift={shift} events={live.events} idx={player.idx} pending={busy && rows.length < shift.length && player.idx >= live.events.length ? shift[rows.length] : null} />
-          {choice&&<div className="conversation-gate"><h2>{choice.c.approval?'Customer is considering the quote':'Customer is waiting for a choice'}</h2><blockquote>{parseReply(choice.first).spoken}</blockquote><p>No ticket has been sent. Hear the customer before continuing.</p><button className="btn" onClick={()=>choiceResolve.current?.(true)}>Customer answers: {choice.c.clarify}</button></div>}
+          {choice&&<div className="conversation-gate"><h2>{choice.c.approval?'Customer is considering the quote':'Customer is waiting for a choice'}</h2><blockquote>{parseReply(choice.first).spoken}</blockquote><p>No ticket has been sent. Hear the customer before continuing.</p><button className="btn" onClick={()=>choiceResolve.current?.(true)}>Customer answers: {customerAnswer(choice.c)}</button></div>}
           <div className="ctl">
             {(player.idx < live.events.length || finishedRun) && (player.paused
               ? <button className="btn" onClick={player.resume}>Resume ▸</button>
@@ -429,4 +429,4 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-            }
+}
