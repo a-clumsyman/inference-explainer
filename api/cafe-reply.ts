@@ -243,10 +243,10 @@ export function pickShift(level: Level = LEVELS[1], rand: () => number = Math.ra
 // Server route: the game's hosted model call. Keys stay here, never in the browser.
 // Needs env var GEMINI_API_KEY from a Free-tier Google AI Studio project (no billing linked). Optional GEMINI_MODEL.
 
-const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite' // has a Free tier per Google's pricing page
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash' // has a Free tier per Google's pricing page
 // Best-effort only: this counter lives in one server instance's memory, so it is NOT a reliable global limit.
 // The real financial boundary is a Google project with no billing account linked, plus the per-request caps below.
-const ALLOWED_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite']
+const ALLOWED_MODELS = ['gemini-3.6-flash']
 const DAILY_CAP = Number(process.env.CAFE_DAILY_CAP || 400)
 let day = ''
 let used = 0
@@ -296,7 +296,7 @@ export default async function handler(req: any, res: any) {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: escalate === true ? `${c.line}\n\nThe customer request just failed. They come back, annoyed: "That did not work. Sort this out now."` : c.line }] }],
-      generationConfig: { maxOutputTokens: 300, temperature: 0.7, thinkingConfig: { thinkingLevel: 'minimal' } },
+      generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingLevel: 'medium' } },
     }),
   })
   if (!r.ok) {
@@ -307,6 +307,6 @@ export default async function handler(req: any, res: any) {
     return res.status(429).json({ error: daily ? 'The free daily allowance is used up.' : 'The free service is rate limiting right now.', kind: daily ? 'daily' : 'rate' })
   }
   const j: any = await r.json()
-  const text = (j?.candidates?.[0]?.content?.parts ?? []).map((x: any) => x.text ?? '').join('')
+  const text = (j?.candidates?.[0]?.content?.parts ?? []).filter((x: any) => !x.thought).map((x: any) => x.text ?? '').join('')
   res.status(200).json({ reply: text.trim(), model: useModel })
   }
