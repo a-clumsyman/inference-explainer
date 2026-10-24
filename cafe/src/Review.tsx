@@ -6,6 +6,7 @@ import { askCoach, buildEvidence, CoachPaused, type CoachResult, type Tip } from
 import { BISCUIT } from './cafe/sprites.ts'
 import { reducedMotion } from './cafe/Scene.tsx'
 import { Biscuit } from './Biscuit.tsx'
+import { meow } from './cafe/sound.ts'
 
 type Row = { c: Customer; reply: string; v: Verdict }
 export type Run = { instructions: string; rows: Row[]; planned: number }
@@ -74,7 +75,7 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
 
   async function askBiscuit() {
     setCoachBusy(true); setCoachErr('')
-    try { setCoach(await askCoach(instr, buildEvidence(run.rows, sim.ledgers), standIn)) }
+    try { const r = await askCoach(instr, buildEvidence(run.rows, sim.ledgers), standIn); setCoach(r); meow() }
     catch (e) { setCoachErr(e instanceof CoachPaused ? e.message : 'Suggestions are not available right now: ' + String((e as Error).message ?? e)) }
     finally { setCoachBusy(false) }
   }
