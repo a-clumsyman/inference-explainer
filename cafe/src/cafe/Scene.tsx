@@ -174,7 +174,7 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
   const curC = pending ?? shift.find((c) => c.id === v.cur) ?? null
   const done = new Set(Object.keys(v.mood))
   const queue = shift.filter((c) => c.id !== curC?.id && !done.has(c.id)).slice(0, 5)
-  const curMood: Mood = curC ? v.mood[curC.id] ?? v.live ?? 'neutral' : 'neutral'
+  const curMood: Mood = pending ? 'neutral' : curC ? v.mood[curC.id] ?? v.live ?? 'neutral' : 'neutral'
   const chef: 'calm' | 'cross' | 'angry' = !v.cross ? 'calm' : v.denials >= 2 || v.reworks >= 2 ? 'angry' : 'cross'
   const lastKind = pending ? 'arrive' : idx > 0 ? events[idx - 1]?.kind : null
   const ph = v.ticket?.phase
@@ -210,7 +210,7 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
         {/* pass window and ticket */}
         <rect x="52" y="6" width="38" height="14" fill="#5a3a24" />
         <rect x="54" y="8" width="34" height="10" fill="#3a2a22" />
-        {v.ticket && (
+        {!pending && v.ticket && (
           <g key={`t${v.eventKey >= 0 ? v.ticket.text + ph : ''}`} className={'ticket ' + ph}>
             <rect x="56" y="9" width="30" height="8" fill={ph === 'denied' ? '#d9604c' : ph === 'done' ? '#6bbf7a' : ph === 'none' ? '#9db3c8' : '#e8dcc0'} />
             <text x="58" y="14.5" fontSize="3.6" fill="#1d1a24" fontFamily="VT323">{v.ticket.text.toUpperCase().slice(0, 18)}</text>
@@ -237,7 +237,7 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
       {curC && <div className="saybubble custsay" key={'c' + custSay}><small>{curC.who}</small><span className="saytxt">{custSay}</span></div>}
       {curC && <div className="saybubble aisay" key={'a' + aiSay}><small>YOUR AI</small><span className="saytxt">{aiSay}</span></div>}
       </div>
-      {v.status && <div className={'kstat ' + v.status.tone}><b>{v.status.stamp}</b>{v.status.short ? ' · ' + v.status.short : ''}</div>}
+      {!pending && v.status && <div className={'kstat ' + v.status.tone}><b>{v.status.stamp}</b>{v.status.short ? ' · ' + v.status.short : ''}</div>}
       <details className="feedwrap"><summary>Play-by-play log (optional)</summary>
       <ol className="feed" aria-live="polite">
         {events.slice(Math.max(0, idx - 4), idx).map((e) => <li key={e.idx} className={'ev ' + e.kind}>{e.text}</li>)}
@@ -283,4 +283,4 @@ export function usePlayer(events: Ev[], start = 0) {
     replay: () => { setIdx(0); setPaused(false) },
     setIdx,
   }
-}
+                                                                                                                 }
