@@ -262,7 +262,7 @@ export default function App() {
           <Biscuit spot="shift" />
           <div className="meter">Customer {Math.min(busy && player.idx >= live.events.length ? rows.length + 1 : customerAt(live.events, player.idx), shift.length)} of {shift.length}</div>
           <Scene shift={shift} events={live.events} idx={player.idx} pending={busy && rows.length < shift.length && player.idx >= live.events.length ? shift[rows.length] : null} />
-          {choice&&<div className="lesson-gate"><h2>{choice.c.approval?'Customer is considering the quote':'Customer is waiting for a choice'}</h2><blockquote>{parseReply(choice.first).spoken}</blockquote><p>No ticket has been sent. Hear the customer before continuing.</p><button className="btn" onClick={()=>choiceResolve.current?.(true)}>Customer answers: {choice.c.clarify}</button></div>}
+          {choice&&<div className="conversation-gate"><h2>{choice.c.approval?'Customer is considering the quote':'Customer is waiting for a choice'}</h2><blockquote>{parseReply(choice.first).spoken}</blockquote><p>No ticket has been sent. Hear the customer before continuing.</p><button className="btn" onClick={()=>choiceResolve.current?.(true)}>Customer answers: {choice.c.clarify}</button></div>}
           <div className="ctl">
             {(player.idx < live.events.length || finishedRun) && (player.paused
               ? <button className="btn" onClick={player.resume}>Resume ▸</button>
