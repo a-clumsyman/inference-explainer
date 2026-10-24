@@ -21,7 +21,10 @@ export const FULL_SLOTS = ['12:00']
 export const TABLES = 3
 export const OPEN_SLOTS = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00']
 
-export const SYSTEM_SUFFIX = 'Reply to the customer in one or two short sentences. Add any extra line the instructions above ask for.'
+export const SYSTEM_SUFFIX = 'Reply to the customer in one or two short sentences.'
+
+/** Cafe plumbing: the game ALWAYS adds this to the prompt itself. It is never the player's job to write or know it. */
+export const CONTRACT = 'The cafe system reads only the last line of your reply to run the kitchen and the booking desk. Always end your reply with exactly one of these lines: ACTION: ORDER <item> x<number>, <item> x<number>  or  ACTION: BOOK <people> at <HH:MM>  or  ACTION: NONE (when nothing should be sent).'
 
 export const STARTER = 'You are a helpful café assistant. Answer customers.'
 
@@ -248,7 +251,25 @@ const DAILY_CAP = Number(process.env.CAFE_DAILY_CAP || 400)
 let day = ''
 let used = 0
 
+const CORS_ORIGINS = new Set(['https://clumsyman.xyz', 'https://www.clumsyman.xyz'])
+function cors(req: any, res: any): boolean {
+  const origin = req.headers?.origin
+  const allowed = typeof origin === 'string' && CORS_ORIGINS.has(origin)
+  if (allowed) { res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin') }
+  if (req.method === 'OPTIONS') {
+    if (allowed) {
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+      res.setHeader('Access-Control-Max-Age', '86400')
+    }
+    res.status(204).end()
+    return true
+  }
+  return false
+}
+
 export default async function handler(req: any, res: any) {
+  if (cors(req, res)) return
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   const { instructions, customerId, model, escalate } = req.body ?? {}
   // Optional model pick, only from these Free-tier models (used for the same-scenario comparison). Anything else falls back to the default.
@@ -263,7 +284,7 @@ export default async function handler(req: any, res: any) {
   const key = process.env.GEMINI_API_KEY
   if (!key) return res.status(503).json({ error: 'hosted model not configured' })
   used++
-  const system = `${instructions.trim()}\n\nFacts sheet:\n${FACTS.map((f) => '- ' + f).join('\n')}\n\n${SYSTEM_SUFFIX}`
+  const system = `${instructions.trim()}\n\nFacts sheet:\n${FACTS.map((f) => '- ' + f).join('\n')}\n\n${SYSTEM_SUFFIX}\n\n${CONTRACT}`
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${useModel}:generateContent`, {
     method: 'POST',
     headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },

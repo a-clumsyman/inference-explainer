@@ -13,13 +13,13 @@ const FACTS = [
   'Left today: croissant 2, banana bread 1. Drinks are not limited.',
   'Tables: 3 tables with 4 seats each, biggest party 4. The 12:00 slot is fully booked. Other hourly slots from 08:00 to 16:00 are open.',
 ]
-const PROTOCOL = 'The simulated kitchen and booking desk only read a last line of the AI reply written exactly like: ACTION: ORDER <item> x<number>, <item> x<number>   or   ACTION: BOOK <people> at <HH:MM>   or   ACTION: NONE. The AI only knows this if the instructions say so. The AI is also told by the game to answer in one or two short sentences.'
+const PROTOCOL = 'The simulated kitchen and booking desk only read a last line of the AI reply written exactly like: ACTION: ORDER <item> x<number>, <item> x<number>   or   ACTION: BOOK <people> at <HH:MM>   or   ACTION: NONE. The game always adds this rule itself, so the player never has to write or know it - suggest natural-language guidance, never wire syntax. The AI is also told by the game to answer in one or two short sentences.'
 
 const SCHEMA = {
   type: 'OBJECT',
   properties: {
     summary: { type: 'STRING' },
-    tips: { type: 'ARRAY', items: { type: 'OBJECT', properties: { customerId: { type: 'STRING' }, change: { type: 'STRING' }, suggestedLine: { type: 'STRING' }, watch: { type: 'STRING' } }, required: ['customerId', 'change', 'suggestedLine', 'watch'] } },
+    tips: { type: 'ARRAY', items: { type: 'OBJECT', properties: { customerId: { type: 'STRING' }, change: { type: 'STRING' }, suggestedLine: { type: 'STRING' }, watch: { type: 'STRING' }, relatedLine: { type: 'STRING' } }, required: ['customerId', 'change', 'suggestedLine', 'watch'] } },
   },
   required: ['summary', 'tips'],
 }
@@ -133,7 +133,25 @@ const KNOWN: Record<string, string> = {
 // Hide the staff code in any spelling before anything goes to the model.
 const redact = (t: string) => t.replace(/m\W*o\W*c\W*h\W*a\W*[-_ ]?\W*7/gi, '[hidden]')
 
+const CORS_ORIGINS = new Set(['https://clumsyman.xyz', 'https://www.clumsyman.xyz'])
+function cors(req: any, res: any): boolean {
+  const origin = req.headers?.origin
+  const allowed = typeof origin === 'string' && CORS_ORIGINS.has(origin)
+  if (allowed) { res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin') }
+  if (req.method === 'OPTIONS') {
+    if (allowed) {
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+      res.setHeader('Access-Control-Max-Age', '86400')
+    }
+    res.status(204).end()
+    return true
+  }
+  return false
+}
+
 export default async function handler(req: any, res: any) {
+  if (cors(req, res)) return
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   const { instructions, evidence } = req.body ?? {}
   if (typeof instructions !== 'string' || !instructions.trim() || instructions.length > 600 || !Array.isArray(evidence) || evidence.length === 0 || evidence.length > 8) return res.status(400).json({ error: 'bad request' })
@@ -157,6 +175,7 @@ export default async function handler(req: any, res: any) {
     '- Base every tip on the evidence shown. Do not invent events, replies or causes. You cannot see why the AI answered as it did, so do not explain causes. Propose experiments, never promise fixes.',
     '- "change": one plain sentence on what to change in their instructions. "suggestedLine": one short line (at most 35 words) they could add to the instructions, written as an instruction to the AI. "watch": one sentence on what the player should look at in the next run to see whether the experiment did anything.',
     '- If their instructions already contain something relevant, say so and refine it instead of repeating it.',
+    '- "relatedLine": if one existing line of the player\'s instructions likely contributed to this problem, quote it EXACTLY as written (copy the words, no changes). If no specific line is responsible, use an empty string. Never invent or paraphrase the quote.',
     '- "summary": one or two sentences on the main pattern. No praise filler.',
     '- The player is new to AI. Use plain everyday words. Never say "prompt", "protocol", "token" or "ACTION line"; say "instructions" and "the kitchen order line". First say what happened and why it matters in one sentence, then the fix.',
     '- Never mention or guess any staff code or secret. Simple words. No em dashes.',
