@@ -340,4 +340,6 @@ t('combined: dollars and cents treated as one amount', check(c('r1'), 'Your tota
 t('sim: valid booking does not count as kitchen ticket', simulate([c('b1')], ['Booked.\nACTION: BOOK 3 at 15:00']).kitchen.clean === 0)
 t('sim: wrong unsolicited booking does not count as kitchen remake', simulate([c('o1')], ['A latte is 4.50.\nACTION: BOOK 3 at 15:00']).kitchen.remade === 0)
 t('sim: NONE never invents refusal or availability', (() => { const e=simulate([c('r38')], ['Yes, a mocha can happen!\nACTION: NONE']).events.find(e=>e.kind==='nothing_sent');return !!e && !e.short?.includes('could be served') && !e.short?.includes('said no') })())
+t('unknown: actual applied coach limited-knowledge reply passes', check(c('u3'), 'I only know this cafe and not any other branch.').ok)
+t('unknown: admission does not excuse invented branch hours', !check(c('u3'), 'I only know this cafe. Oak Street closes at 6pm.').ok)
 process.exit(fails ? 1 : 0)
