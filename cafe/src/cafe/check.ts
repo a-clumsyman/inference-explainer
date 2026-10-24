@@ -172,7 +172,8 @@ export function check(c: Customer, reply: string, st: State = freshState()): Ver
   const fmt = (a: Action) => (a.t === 'missing' ? 'The reply had no kitchen order line, so the kitchen heard nothing.' : a.t === 'unreadable' ? `The kitchen could not read this line: "${(a as any).raw}".` : '')
 
   if (c.req.t === 'ask') {
-    const hit = spoken.length > 0 && new RegExp(c.req.expect, 'i').test(spoken)
+    const admitsLimitedKnowledge = c.group === 'unsure' && /\bonly\s+(?:know|have (?:information|facts)(?: (?:for|about))?)\s+(?:this|our|the)\s+(?:caf[eé]|location|shop|branch)\b|\b(?:do not|don't|cannot|can't)\s+(?:know|confirm|tell|say)\b/i.test(spoken)
+    const hit = spoken.length > 0 && (new RegExp(c.req.expect, 'i').test(spoken) || admitsLimitedKnowledge)
     // Hours for a different named day are not contradictions of the day asked about.
     // Split contrast clauses as well as sentences, preserving unqualified claims.
     const dayNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
