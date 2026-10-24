@@ -62,6 +62,13 @@ export const freshState = (): State => ({ stock: { ...STOCK }, booked: {} })
 
 /** Kitchen: is every item on the menu and in stock? */
 export function kitchen(items: { name: string; qty: number }[], st: State = freshState()): Desk {
+  // Repeated item lines must share one stock budget, not each pass separately.
+  const merged = new Map<string, number>()
+  for (const it of items) {
+    if (!Number.isInteger(it.qty) || it.qty < 1 || it.qty > 20) return { ok: false, text: `Kitchen denied it: ${it.qty} is not a usable quantity.` }
+    merged.set(it.name, (merged.get(it.name) ?? 0) + it.qty)
+  }
+  items = [...merged].map(([name, qty]) => ({ name, qty }))
   // All-or-nothing: check every line first, change stock only if the whole order is accepted.
   for (const it of items) {
     if (!(it.name in MENU)) return { ok: false, text: `Kitchen denied it: "${it.name}" is not on the menu.` }
@@ -297,4 +304,4 @@ export function hints(instructions: string): string[] {
   if (!/(not on the menu|sold out|only .* left|fully booked|too big|cannot seat|can.t seat)/.test(t)) out.push('Say what to do when an item is not on the menu, is sold out, or a table cannot be booked.')
   if (!/(cafe|café|customer|counter|shop)/.test(t)) out.push('Background: say who the AI is and where it works.')
   return out
-  }
+                        }
