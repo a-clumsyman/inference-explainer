@@ -111,3 +111,14 @@ npm i
 npm run dev     # dev server
 npm run build   # static build into dist/
 ```
+
+
+### Cafe preview model test (October 24, 2026)
+
+The active counter and coach default is `gemini-3.5-flash-lite`, restored at the owner's request. No automatic model fallback is enabled. All checker, one-call coach evidence, current-state and pacing fixes are retained.
+
+A bounded experiment with `gemini-3.6-flash` and medium thinking correctly calculated banana bread + cappuccino + oat milk as 8.40, admitted unknown Oak Street branch information, and completed the eight-case Day 2 matrix 8/8. Its free daily quota then exhausted; the Day 1 rerun and coach verification did not complete. The app clearly paused, preserved completed customers, and used nothing paid. Exact project quotas were not verified because AI Studio required sign-in. Published free pricing does not establish project RPM/TPM/RPD.
+
+`gemini-3.8-flash` was listed but returned high-demand 503s and a bounded timeout; `gemini-2.5-pro` was listed but returned 404 unavailable to new users. `gemini-3.7-flash` is a deprecated alias to 3.8. No paid-only model was tried. A future explicit model option needs owner approval and fresh quota/pricing checks.
+
+Sources: https://ai.google.dev/gemini-api/docs/pricing , https://ai.google.dev/gemini-api/docs/rate-limits , https://ai.google.dev/gemini-api/docs/models/gemini-3.6-flash , https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash .
