@@ -249,14 +249,38 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
 
 /** Steps through the event log one event at a time. Pass total as it grows during a live shift.
  *  With gates on, the playhead stops at each gate index (just after a customer leaves) until next() is pressed. */
-export function usePlayer(total: number, start = 0, stepMs = 950, gates?: Set<number>, gatesOn = true) {
+/** Reading dwell per event kind: how long each beat stays on screen before the next one. */
+export const DWELL: Record<Ev['kind'], number> = {
+  arrive: 2600, answered: 3600,
+  ticket_received: 1800, prep_started: 1500, prep_done: 1800, rework: 2400,
+  ticket_denied: 3200, booking_confirmed: 2400, booking_rejected: 3200,
+  nothing_sent: 3000, no_action: 2400, ticket_unreadable: 3000,
+  mood: 3400,
+}
+
+/**
+ * The shift playhead: one event at a time at reading pace, only when not paused.
+ * It can never outrun the events that exist, and nothing else moves it - the scene,
+ * the transcript and the customer meter all read this one index, so they stay in sync.
+ */
+export function usePlayer(events: Ev[], start = 0) {
   const [idx, setIdx] = useState(start)
-  const reduced = reducedMotion()
-  const gated = gatesOn && !!gates?.has(idx) && idx < total
+  const [paused, setPaused] = useState(false)
+  const delay = idx > 0 ? DWELL[events[idx - 1]?.kind ?? 'arrive'] : 150
+  const total = events.length
   useEffect(() => {
-    if (idx >= total || gated) return
-    const id = setTimeout(() => setIdx((i) => Math.min(total, i + 1)), reduced ? 300 : stepMs)
+    if (paused || idx >= events.length) return
+    const id = setTimeout(() => setIdx((i) => Math.min(total, i + 1)), delay)
     return () => clearTimeout(id)
-  }, [idx, total, stepMs, reduced, gated])
-  return { idx, replay: () => setIdx(0), skip: () => setIdx(total), setIdx, gated, next: () => setIdx((i) => Math.min(total, i + 1)) }
+  }, [idx, total, paused, delay])
+  return {
+    idx,
+    paused,
+    pause: () => setPaused(true),
+    resume: () => setPaused(false),
+    next: () => setIdx((i) => Math.min(events.length, i + 1)),
+    skip: () => setIdx(events.length),
+    replay: () => { setIdx(0); setPaused(false) },
+    setIdx,
+  }
 }
