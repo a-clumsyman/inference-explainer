@@ -8,8 +8,8 @@ import { reducedMotion } from './cafe/Scene.tsx'
 import { Biscuit } from './Biscuit.tsx'
 import { meow } from './cafe/sound.ts'
 
-type Row = { c: Customer; reply: string; v: Verdict }
-export type Run = { instructions: string; rows: Row[]; planned: number }
+type Row = { c: Customer; reply: string; v: Verdict; instructions?: string }
+export type Run = { instructions: string; rows: Row[]; planned: number; customers?: Customer[] }
 
 
 const STAMP: Record<string, { label: string; cls: string }> = {
@@ -59,8 +59,8 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
   const stamp = m.v.priceIssue ? { label: m.v.priceIssue === 'missing_total' ? 'NO TOTAL GIVEN' : m.v.priceIssue === 'wrong_total' ? 'PRICE MISMATCH' : 'INCORRECT PRICE', cls: 'no' } : STAMP[m.v.outcome] ?? STAMP.na
   const tip: Tip | undefined = coach?.tips.find((t) => t.customerId === m.c.id)
   const revised = (t: Tip) => t.relatedLine && instr.includes(t.relatedLine) ? instr.replace(t.relatedLine, t.suggestedLine) : instr.trimEnd() + (instr.trim() ? '\n' : '') + t.suggestedLine
-  const fits = tip ? wordCount(revised(tip)) <= MAX_WORDS : false
-  const rest = run.rows.length - m.i
+  const fits = tip ? wordCount(revised(tip)) <= MAX_WORDS && revised(tip).length <= 2400 : false
+  const rest = (run.customers?.length ?? run.rows.length) - m.i
 
   async function askBiscuit() {
     setCoachBusy(true); setCoachErr('')
