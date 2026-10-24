@@ -20,6 +20,9 @@ export const CHEF_IMG = chef
 export const SOUSCHEF_IMG = souschef
 export const BISCUIT = [biscuit1, biscuit2]
 
+/** The maker's own sprite for the welcome intro: the blue-polo character, closest to his blue-hoodie look. */
+export const MAKER_IMG = customer3
+
 const CUSTOMERS = [customer1, customer2, customer3, customer4, customer5, customer6, customer7, customer8]
 const hash = (s: string) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)
 
