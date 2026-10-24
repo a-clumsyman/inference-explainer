@@ -173,14 +173,14 @@ const PROMISE = /\b(you('re| are) (all set|booked|confirmed)|(i('ve| have)|we('v
 
 /** Judges one customer against the live shift state. Pass the same State for a whole shift so stock and tables carry over. */
 export function check(c: Customer, reply: string, st: State = freshState(), instructions = '', requireTotal = false, totalAlreadyQuoted = false): Verdict {
-  if(c.clarify){
+  if(c.clarify||reply.includes(CHOICE_MARKER)){
     if(leaked(reply))return check({...c,clarify:undefined},reply,st,instructions,requireTotal)
     const marker=CHOICE_MARKER
     const parts=reply.split(marker)
     const first=parseReply(parts[0])
     const clear=conversationReady(c,first.spoken,first.action.t)
     const plain={...c,clarify:undefined}
-    if(parts.length===2 && clear)return check(plain,parts[1],st,instructions,requireTotal,!!c.approval)
+    if(parts.length===2 && clear)return check(plain,parts[1],st,instructions,requireTotal,c.approval||(!c.clarify&&c.req.t==='order'))
     const held=check({...plain,req:{t:'ask',expect:'(?!)',want:c.approval?'a correct total and request for agreement':'a useful drink clarification'}},first.spoken+'\nACTION: NONE',st,instructions,requireTotal)
     const early=first.action.t==='order'||first.action.t==='book'
     return {...held,ok:false,infra:!early,outcome:early?'differs':'na',helpful:false,action:first.action,system:c.approval?'Held at the counter. No preparation before the customer agrees.':'Held at the counter. No ticket can be sent before the customer chooses.',note:early?(c.approval?'The AI sent a ticket before quoting the total and hearing yes. Nothing was prepared.':'The AI tried to act before the drink choice. Nothing was committed.'):(c.approval?'The quote/confirmation step was not verified. Nothing was prepared. Unscored; retry this guest.':'The conversation is incomplete or the question is unclear. Unscored; retry this guest.')}
