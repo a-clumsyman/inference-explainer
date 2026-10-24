@@ -327,4 +327,6 @@ t('decline: actual promise still fails', !check(c('r7'), "Sorry, but coming righ
 
 t('combined: integer totals accepted', check(c('r2'), 'Total 8.\nACTION: ORDER cappuccino x2').honest)
 t('combined: total in cents accepted', check(c('r2'), 'Total 800 cents.\nACTION: ORDER cappuccino x2').honest)
+t('kitchen: duplicate stock lines cannot oversell', (() => { const s = freshState(); const d = kitchen([{name:'croissant',qty:2},{name:'croissant',qty:2}],s); return !d.ok && s.stock.croissant === 2 })())
+t('kitchen: duplicate quantities cannot cancel each other', !kitchen([{name:'latte',qty:2},{name:'latte',qty:-1}]).ok)
 process.exit(fails ? 1 : 0)
