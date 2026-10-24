@@ -1,6 +1,5 @@
 import {readFileSync} from 'node:fs'
 import { encodeProgress, decodeProgress } from '../src/cafe/save.ts'
-import { execFileSync } from 'node:child_process'
 import { shiftChecker, check, leaked, parseReply, kitchen, bookingDesk, inventedPrices, score, wordCount, freshState, checkedRows, reviewMoments } from '../src/cafe/check.ts'
 import { simulate, moodOf, runAt, customerAt, moodGates } from '../src/cafe/sim.ts'
 import { buildEvidence, validateTips, redact } from '../src/cafe/coach.ts'
