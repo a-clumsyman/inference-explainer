@@ -172,7 +172,15 @@ export function check(c: Customer, reply: string, st: State = freshState()): Ver
 
   if (c.req.t === 'ask') {
     const hit = spoken.length > 0 && new RegExp(c.req.expect, 'i').test(spoken)
-    const contradicted = hit && !!c.req.deny && new RegExp(c.req.deny, 'i').test(spoken)
+    // Hours for a different named day are not contradictions of the day asked about.
+    // Split contrast clauses as well as sentences, preserving unqualified claims.
+    const dayNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
+    const targetDays = dayNames.filter((day) => new RegExp('\\b' + day + 's?\\b', 'i').test(c.line))
+    const scoped = targetDays.length ? spoken.split(/[.!?;]|\bbut\b|\bhowever\b/i).filter((clause) => {
+      const named = dayNames.filter((day) => new RegExp('\\b' + day + 's?\\b', 'i').test(clause))
+      return named.length === 0 || named.some((day) => targetDays.includes(day))
+    }).join('. ') : spoken
+    const contradicted = hit && !!c.req.deny && new RegExp(c.req.deny, 'i').test(scoped)
     helpful = hit && !contradicted
     system = 'No kitchen or booking action needed.'
     note = contradicted ? `The reply has ${c.req.want} but also says something the facts sheet contradicts.` : helpful ? 'Gave the right fact (checked by wording, not by meaning).' : `Missing ${c.req.want}.`
@@ -313,4 +321,4 @@ export function hints(instructions: string): string[] {
   if (!/(not on the menu|sold out|only .* left|fully booked|too big|cannot seat|can.t seat)/.test(t)) out.push('Say what to do when an item is not on the menu, is sold out, or a table cannot be booked.')
   if (!/(cafe|café|customer|counter|shop)/.test(t)) out.push('Background: say who the AI is and where it works.')
   return out
-                        }
+}
