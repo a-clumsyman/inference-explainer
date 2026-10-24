@@ -55,3 +55,26 @@ t('restoration keeps browser save and review loop',appSource.includes('decodePro
 
 t('intro replay separate from saved screen',appSource.includes("useState(params.get('intro') === '1')")&&appSource.includes('Watching the intro does not reset your instructions or progress.')&&appSource.includes('Watch intro'))
 console.log(`${count} lesson checks passed`)
+
+const {levelWon,decodeCampaign,unlocked}=await import('../src/cafe/campaign.ts')
+const {POOL,pickShift,LEVELS}=await import('../src/cafe/data.ts')
+const {check,shiftChecker}=await import('../src/cafe/check.ts')
+const {simulate}=await import('../src/cafe/sim.ts')
+const q=POOL.find(c=>c.id==='q1')!
+const complete='Which drink?\nACTION: NONE\n--- CUSTOMER CHOICE ---\nHere is your cappuccino.\nACTION: ORDER cappuccino x1'
+t('seven actual shift levels',LEVELS.length===7&&LEVELS[0].mix.order===3)
+t('clarification action is held and scored gap',!check(q,'Done.\nACTION: ORDER cappuccino x1').ok&&!check(q,'Done.\nACTION: ORDER cappuccino x1').infra)
+t('clarification alone unscored',check(q,'Which drink?\nACTION: NONE').infra)
+t('clarification conversation exact order passes',check(q,complete).ok)
+t('clarification cannot bypass failed first action',!check(q,complete.replace('Which drink?\nACTION: NONE','Done.\nACTION: ORDER latte x1')).ok)
+t('held clarification cannot consume stock',check(q,'Done.\nACTION: ORDER croissant x2').stockAfter.croissant===2)
+t('held clarification has no prep or booking events',!simulate([q],['Done.\nACTION: ORDER cappuccino x1']).events.some(e=>e.kind==='prep_done'||e.kind==='booking_confirmed'))
+t('clarification choices appear in scene event order',simulate([q],[complete]).events.some(e=>e.text.includes('Customer answers: A cappuccino')))
+t('campaign needs every planned guest',!levelWon([{v:check(q,complete)}],2)&&levelWon([{v:check(q,complete)}],1))
+t('campaign unscored cannot silently unlock',!levelWon([{v:check(q,'Which?\nACTION: NONE')}],1))
+t('campaign locked until predecessor clear',!unlocked(decodeCampaign(null),2)&&unlocked({version:1,cleared:[1],best:{}},2))
+t('campaign corrupt save safe',decodeCampaign('{broken').cleared.length===0)
+t('campaign unknown level safe',decodeCampaign('{"version":1,"cleared":[999],"best":{}}').cleared.length===0)
+for(const lv of LEVELS){for(let i=0;i<20;i++){const sh=pickShift(lv);t('level '+lv.n+' full fair shift '+i,sh.length===Object.values(lv.mix).reduce((a,b)=>a+(b??0),0))}}
+void shiftChecker
+console.log(`${count} combined curriculum/campaign checks passed`)
