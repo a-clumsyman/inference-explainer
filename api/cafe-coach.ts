@@ -13,7 +13,7 @@ const FACTS = [
   'Baked goods have limited stock. Drinks are not limited. Opening counts are not current stock: use only the remaining counts in each customer evidence record.',
   'Tables: 3 tables with 4 seats each, biggest party 4. The 12:00 slot is fully booked. Other hourly slots from 08:00 to 16:00 are open.',
 ]
-const PROTOCOL = 'The simulated kitchen and booking desk only read a last line of the AI reply written exactly like: ACTION: ORDER <item> x<number>, <item> x<number>   or   ACTION: BOOK <people> at <HH:MM>   or   ACTION: NONE. The game always adds this rule itself, so the player never has to write or know it - suggest natural-language guidance, never wire syntax. The AI is also told by the game to answer in one or two short sentences.'
+const PROTOCOL = 'The simulated kitchen and booking desk only read a last line of the AI reply written exactly like: ACTION: ORDER <item> x<number>, <item> x<number>   or   ACTION: BOOK <people> at <HH:MM>   or   ACTION: NONE. The game always adds this rule itself, so the player never has to write or know it - suggest natural-language guidance, never wire syntax. ORDER and BOOK execute immediately and cannot be used for unaccepted alternative offers. The assistant uses NONE when offering a changed item, quantity, party size or time for customer confirmation. A booking is for one table; splitting or joining tables is unsupported. The AI is also told by the game to answer in one or two short sentences.'
 
 const SCHEMA = {
   type: 'OBJECT',
