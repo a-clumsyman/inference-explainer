@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     branch: cafe-preview
-    buildCommand: cd cafe && npm ci --no-audit --no-fund && npx vite build && npx esbuild ../api/cafe-reply.ts ../api/cafe-coach.ts --bundle --platform=node --format=esm --outdir=../server/dist
+    buildCommand: cd cafe && npm install --no-audit --no-fund && npx vite build && npx esbuild ../api/cafe-reply.ts ../api/cafe-coach.ts --bundle --platform=node --format=esm --outdir=../server/dist
     startCommand: node server/server.mjs
     envVars:
       - key: CAFE_ENABLED
