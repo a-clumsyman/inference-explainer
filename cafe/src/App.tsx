@@ -179,7 +179,7 @@ export default function App() {
         <span className="tag">{engine.standIn ? 'STAND-IN, NOT A MODEL' : USE_LOCAL ? 'real AI, small and local' : 'real AI, hosted'}</span>
         <button type="button" className="soundbtn" aria-label={isMuted ? 'Turn sound on' : 'Turn sound off'} onClick={() => { const m = !isMuted; setMuted(m); setIsMuted(m); if (!m) click() }}>{isMuted ? '\u{1F507}' : '\u{1F50A}'}</button>
       </header>
-      <div className="small" role="status">Game text and progress only. Don't enter passwords or personal secrets. {saveNotice} <button className="mini" disabled={busy} onClick={() => setResetOpen(true)}>Reset progress</button></div>
+      <div className="small" role="status">Game text and progress only. Don't enter passwords or personal secrets. {saveNotice} <button className="btn ghost" disabled={busy} onClick={() => setResetOpen(true)}>Reset progress</button></div>
       {resetOpen && <section className="card"><p>Reset saved instructions and all game progress on this browser? This cannot be undone.</p><button className="btn" onClick={resetProgress}>Reset everything</button><button className="btn ghost" onClick={() => setResetOpen(false)}>Keep my progress</button></section>}
 
       {screen === 'story' && (
@@ -321,8 +321,8 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
   const badCount = reviewMoments(checkedRows(run.rows, run.instructions)).length
   return (
     <section className="card">
-      <h1 className={sc.won ? 'win' : 'lose'}>{sc.total === 0 ? 'No guests scored yet' : go.over ? 'Shift closed early' : sc.won ? 'Shift survived' : 'Below the pass mark'} <small>{level.title}</small></h1>
-      <p>{sc.won ? `${sc.served} of ${sc.total} served right.` : `${sc.served} of ${sc.total} served right - ${badCount} moment${badCount === 1 ? '' : 's'} to look at.`}{sc.unreadable > 0 ? ` (${sc.unreadable} system or unsure-wording moment${sc.unreadable === 1 ? '' : 's'}, not scored.)` : ''}</p>
+      <h1 className={sc.total === 0 ? '' : sc.won ? 'win' : 'lose'}>{sc.total === 0 ? 'No guests scored yet' : go.over ? 'Shift closed early' : sc.won ? 'Shift survived' : 'Below the pass mark'} <small>{level.title}</small></h1>
+      <p>{sc.total === 0 ? 'Nothing here was scored against your instructions.' : sc.won ? `${sc.served} of ${sc.total} served right.` : `${sc.served} of ${sc.total} served right - ${badCount} moment${badCount === 1 ? '' : 's'} to look at.`}{sc.unreadable > 0 ? ` (${sc.unreadable} system or unsure-wording moment${sc.unreadable === 1 ? '' : 's'}, not scored.)` : ''}</p>
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
       {go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} The shift closed at customer {go.at} of {run.planned}. {run.planned - run.rows.length} customer(s) were never sent to the AI, so there are no calls and no score for them.</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
       {!go.over && go.warn && <p className="warnline">Warning: {go.reason} From Day 2 this closes the shift.</p>}
