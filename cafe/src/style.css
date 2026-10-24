@@ -110,7 +110,7 @@ textarea:focus{outline:none;border-color:var(--acc)}
 /* Phase 2: story intro, guided CTAs, pacing gates */
 .storystage{position:relative;background:#3a2f3f;border:4px solid var(--line);margin-bottom:12px}
 .storybg{width:100%;height:auto;display:block}
-.maker{position:absolute;left:38%;bottom:6%;display:flex;flex-direction:column;align-items:center;gap:2px}
+.maker{position:absolute;left:18%;bottom:6%;display:flex;flex-direction:column;align-items:center;gap:2px}
 .maker.pop{animation:hop .45s ease-out}
 .nametag{font-family:'Silkscreen',monospace;font-size:9px;color:#1d1a24;background:var(--acc);padding:2px 5px;letter-spacing:.5px}
 .speech{background:#fffdf6;color:#2a1d12;border:4px solid #1d1a24;box-shadow:4px 4px 0 #0e0c13;padding:12px 14px;min-height:96px}
@@ -245,7 +245,7 @@ textarea:focus{outline:none;border-color:var(--acc)}
 .card:has(> .reviewbar){padding-bottom:140px}
 /* welcome intro: new-sprite maker + Biscuit, and the header sound toggle */
 .makerimg{width:48px;height:auto;image-rendering:pixelated}
-.storycat{position:absolute;left:62%;bottom:6%;display:flex;flex-direction:column;align-items:center;gap:2px}
+.storycat{position:absolute;left:72%;bottom:6%;display:flex;flex-direction:column;align-items:center;gap:2px}
 .storycat.pop{animation:hop .45s ease-out}
 .storycat .catwrap{position:relative;width:30px;height:40px}
 .storycat .catpix{position:absolute;left:0;bottom:0;width:30px;height:auto;image-rendering:pixelated}
