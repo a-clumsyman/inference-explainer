@@ -103,8 +103,8 @@ export function simulate(shift: Customer[], replies: string[]): Sim {
         cid: c.id, kind: 'nothing_sent', stock: v.stockAfter, booked: bookedCount,
         stamp: cleanRefusal ? 'NO ACTION NEEDED' : 'NOT SENT',
         tone: cleanRefusal ? 'ok' : 'no',
-        short: cleanRefusal ? 'said no clearly, and it could not be done' : a.t === 'none' ? 'the AI said no to something that could be served' : 'the reply never became an order, so the kitchen did nothing',
-        text: cleanRefusal ? 'Nothing needed sending: the AI clearly said no, and the café could not do it.' : a.t === 'none' ? 'The reply said no to something the cafe could have done: nothing went to the kitchen or desk' : 'The reply never became an order or booking: nothing went to the kitchen or desk',
+        short: cleanRefusal ? 'said no clearly, and it could not be done' : v.contradiction ? 'the reply promised something, but no action was sent' : 'no order or booking was sent; check what the reply promised',
+        text: cleanRefusal ? 'Nothing needed sending: the AI clearly said no, and the café could not do it.' : v.contradiction ? 'The reply promised something but sent no action to the kitchen or desk.' : 'Nothing reached the kitchen or desk. Check the reply and whether the request could be done.',
       })
     } else {
       const ok = v.outcome === 'handled'
@@ -152,4 +152,4 @@ export function simulate(shift: Customer[], replies: string[]): Sim {
   })
   const customerScore = ledgers.length ? Math.round(ledgers.reduce((s, l) => s + l.customer, 0) / ledgers.length) : CUSTOMER_START
   return { events, ledgers, customerScore, staffScore: clamp(staff), kitchen, till, desk }
-                                                                                }
+}
