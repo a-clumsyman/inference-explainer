@@ -36,7 +36,7 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
   onEditMyself: () => void
   onDone: () => void
 }) {
-  const moments = useMemo(() => run.rows.map((r, i) => ({ ...r, i })).filter((r) => problem(r.v) && r.v.outcome !== 'na'), [run])
+  const moments = useMemo(() => run.rows.map((r, i) => ({ ...r, i })).filter((r) => problem(r.v)), [run])
   const [n, setN] = useState(0)
   const [coach, setCoach] = useState<CoachResult | null>(null)
   const [coachBusy, setCoachBusy] = useState(false)
@@ -157,4 +157,4 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
       </div>
     </section>
   )
-      }
+}
