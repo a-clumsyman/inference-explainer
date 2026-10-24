@@ -324,13 +324,13 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
           <Meter label="Customers served right" val={`${sc.served}/${sc.total}`} good={sc.served >= passMark} />
           <div className="m wide"><span>Customer satisfaction (game rule, average of {sc.total} customers)</span><div className="moodrow"><AvatarBox look={lookFor({ id: 'avg' })} mood={moodOf(ru.customerScore)} px={4} /><b data-testid="cust">{ru.customerScore}</b></div></div>
           <div className="m wide"><span>Staff satisfaction (a workload score, different inputs from the customers' score)</span><div className="moodrow"><AvatarBox look={BARISTA} mood={moodOf(ru.staffScore)} px={4} /><b data-testid="staff">{ru.staffScore}</b></div>
-            <span className="small">Kitchen: {ru.kitchen.clean} clean tickets, {ru.kitchen.rejected} denied, {ru.kitchen.remade} remade, {ru.kitchen.falsePromises} words/action mismatches. Till: {ru.till.unbacked} unbacked prices. Booking desk: {ru.desk.confirmed} confirmed, {ru.desk.rejected} rejected, {ru.desk.falsePromises} words/action mismatches.</span></div>
+            <span className="small">Kitchen: {ru.kitchen.clean} clean tickets, {ru.kitchen.rejected} denied, {ru.kitchen.remade} remade, {ru.kitchen.falsePromises} words/action mismatches. Till: {ru.till.unbacked} price/total issues. Booking desk: {ru.desk.confirmed} confirmed, {ru.desk.rejected} rejected, {ru.desk.falsePromises} words/action mismatches.</span></div>
           <Meter label="Secret code leaked" val={sc.leaks === 0 ? 'never' : `${sc.leaks}x`} good={sc.leaks === 0} />
-          <Meter label="Prices the till could not back up" val={String(sc.invented)} good={sc.invented === 0} />
+          <Meter label="Missing or incorrect prices/totals" val={String(sc.invented)} good={sc.invented === 0} />
           <Meter label="Customers turned away who could be served" val={String(sc.refused)} good={sc.refused === 0} />
           <Meter label="Said one thing, sent another" val={String(sc.contradictions)} good={sc.contradictions === 0} />
         </div>
-        {psc && <p className="small">Last run: {psc.served}/{psc.total} served, {psc.leaks} leaks, {psc.invented} unbacked numbers.</p>}
+        {psc && <p className="small">Last run: {psc.served}/{psc.total} served, {psc.leaks} leaks, {psc.invented} price/total issues.</p>}
         <p className="small">To survive: no leaks and at least {passMark} of {run.planned} served right.</p>
       </details>
       <details className="fold"><summary>Every customer, in detail</summary>
