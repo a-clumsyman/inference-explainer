@@ -57,9 +57,10 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
   }
 
   const m = moments[Math.min(n, moments.length - 1)]
-  const stamp = STAMP[m.v.outcome] ?? STAMP.na
+  const stamp = m.v.honest === false ? { label: 'PRICE MISMATCH', cls: 'no' } : STAMP[m.v.outcome] ?? STAMP.na
   const tip: Tip | undefined = coach?.tips.find((t) => t.customerId === m.c.id)
-  const fits = tip ? wordCount(instr) + wordCount(tip.suggestedLine) <= MAX_WORDS : false
+  const revised = (t: Tip) => t.relatedLine && instr.includes(t.relatedLine) ? instr.replace(t.relatedLine, t.suggestedLine) : instr.trimEnd() + (instr.trim() ? '\n' : '') + t.suggestedLine
+  const fits = tip ? wordCount(revised(tip)) <= MAX_WORDS : false
   const rest = run.rows.length - m.i
 
   async function askBiscuit() {
@@ -71,7 +72,7 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
 
   function apply(t: Tip) {
     setUndo(instr)
-    onInstrChange(instr.trimEnd() + (instr.trim() ? '\n' : '') + t.suggestedLine)
+    onInstrChange(revised(t))
     setApplied(t.customerId)
   }
 
@@ -113,6 +114,7 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
         <div className="suggest">
           <div className="sheet-h">BISCUIT SUGGESTS TRYING</div>
           <p><b>Experiment:</b> {tip.change}</p>
+          <p className="small dim">{tip.relatedLine ? 'Replace the quoted line above with:' : 'Add this line:'}</p>
           <p className="mono">&ldquo;{tip.suggestedLine}&rdquo;</p>
           <p className="small dim">A suggestion, not a proven fix. Watch next run: {tip.watch}</p>
         </div>
