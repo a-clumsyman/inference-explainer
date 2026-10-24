@@ -53,4 +53,5 @@ t('original gameplay entry restored',appSource.includes('export default function
 t('restoration keeps neutral system checks',appSource.includes('No guests scored yet')&&appSource.includes('Nothing here was scored against your instructions.'))
 t('restoration keeps browser save and review loop',appSource.includes('decodeProgress')&&appSource.includes('Review with Biscuit')&&appSource.includes('Resume the shift at customer'))
 
+t('intro replay separate from saved screen',appSource.includes("useState(params.get('intro') === '1')")&&appSource.includes('Watching the intro does not reset your instructions or progress.')&&appSource.includes('Watch intro'))
 console.log(`${count} lesson checks passed`)
