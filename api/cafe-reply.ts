@@ -1,3 +1,4 @@
+import {customerAnswer} from '../cafe/src/cafe/conversation.ts'
 import {FACTS,SYSTEM_SUFFIX,CONTRACT,POOL,STOCK,OPEN_SLOTS,TABLES} from '../cafe/src/cafe/data.ts'
 // Server route: the game's hosted model call. Keys stay here, never in the browser.
 // Needs env var GEMINI_API_KEY from a Free-tier Google AI Studio project (no billing linked). Optional GEMINI_MODEL.
@@ -55,10 +56,10 @@ export default async function handler(req: any, res: any) {
     headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
-      contents: continued===true&&c.clarify&&typeof priorReply==='string'&&priorReply.length<=2000 ? [
+      contents: continued===true&&(c.clarify||c.req.t==='order')&&typeof priorReply==='string'&&priorReply.length<=2000 ? [
         {role:'user',parts:[{text:c.line}]},
         {role:'model',parts:[{text:priorReply}]},
-        {role:'user',parts:[{text:c.clarify}]},
+        {role:'user',parts:[{text:customerAnswer(c)}]},
       ] : [{role:'user',parts:[{text:escalate===true?`${c.line}\nThe customer returns: That did not work. Sort this out now.`:c.line}]}],
       generationConfig: { maxOutputTokens: 300, temperature: 0.7, thinkingConfig: { thinkingLevel: 'minimal' } },
     }),
