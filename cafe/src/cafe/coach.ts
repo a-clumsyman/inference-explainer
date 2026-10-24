@@ -54,7 +54,11 @@ export function buildEvidence(rows: { c: Customer; reply: string; v: Verdict }[]
     const knownItems = req.t === 'order' && req.items.every((it) => it.name in MENU)
     const requestedTotal = knownItems && req.t === 'order' ? Math.round(req.items.reduce((sum, it) => sum + MENU[it.name] * it.qty, 0) * 100) / 100 : null
     const capabilities = ['answer_from_facts', 'decline_unsupported', 'protect_secret']
-    if (req.t === 'order') capabilities.push('calculate_menu_total', 'send_exact_order', 'offer_available_for_confirmation')
+    if (req.t === 'order') {
+      if (r.v.honest === false) capabilities.push('calculate_menu_total')
+      if (r.v.outcome === 'differs' || r.v.outcome === 'never_sent' || r.v.contradiction) capabilities.push('send_exact_order')
+      if (req.items.some((it) => it.name in stockBefore && it.qty > stockBefore[it.name])) capabilities.push('offer_available_for_confirmation')
+    }
     if (req.t === 'book') capabilities.push('book_one_table', 'explain_booking_limit')
     out.push({
       history: rows.slice(0, i + 1).map((row) => ({ customerId: row.c.id, reply: row.reply })),
@@ -124,4 +128,4 @@ function standInCoach(instructions: string, evidence: Evidence[]): CoachResult {
     summary: 'STAND-IN text for layout testing, not from a model.',
     tips: evidence.slice(0, 2).map((e) => ({ customerId: e.customerId, change: "Stand-in tip: tell the AI to always pass the customer's real order to the kitchen.", suggestedLine: 'Always send the kitchen every item and extra the customer asked for, exactly as they said it.', watch: 'Stand-in: re-run and check whether the kitchen gets the order this time.', ...(relatedLineFor(instructions, e) ? { relatedLine: relatedLineFor(instructions, e)! } : {}) })),
   }
-}
+      }
