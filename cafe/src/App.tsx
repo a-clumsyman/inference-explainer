@@ -30,6 +30,7 @@ const loadSaved = () => { try { return decodeProgress(localStorage.getItem(stora
 export default function App() {
   const [saved] = useState(loadSaved)
   const [campaign,setCampaign]=useState(()=>{try{return decodeCampaign(localStorage.getItem(progressMapKey))}catch{return decodeCampaign(null)}})
+  const [history,setHistory]=useState<Run[]>(()=>{try{return decodeProgress(localStorage.getItem(storageKey+'-history'))?.runs??[]}catch{return []}})
   const [repairIndex,setRepairIndex]=useState(0)
   const [choice,setChoice]=useState<{c:Customer;first:string}|null>(null)
   const choiceResolve=useRef<((v:boolean)=>void)|null>(null)
@@ -63,11 +64,16 @@ export default function App() {
   }, [instr, lvl, screen, shift, rows, runs, partial])
   useEffect(()=>{try{localStorage.setItem(progressMapKey,JSON.stringify(campaign))}catch{}},[campaign])
   useEffect(()=>{if(screen!=='result'||!runs.length)return;const r=runs.at(-1)!;if(matchesLevel(r,LEVELS[lvl])&&levelWon(r.rows,r.planned))setCampaign(old=>({...old,cleared:[...new Set([...old.cleared,lvl])],best:{...old.best,[lvl]:Math.max(old.best[lvl]??0,r.rows.filter(x=>x.v.ok).length)}}))},[screen,runs,lvl])
-  function chooseLevel(n:number){if(busy||!unlocked(campaign,n))return;setLvl(n);setRuns([]);setRows([]);setPartial(null);setShift(pickShift(LEVELS[n]));setErr('');setScreen('write')}
+  function keepHistory(){
+    if(!runs.length)return
+    setHistory(old=>{const merged=[...old,...runs].filter((r,i,all)=>all.findIndex(x=>JSON.stringify(x.rows.map(v=>[v.c.id,v.reply]))===JSON.stringify(r.rows.map(v=>[v.c.id,v.reply])))===i).slice(-12);return merged})
+  }
+  useEffect(()=>{if(!history.length)return;const last=history.at(-1)!;const raw=encodeProgress({instr:last.instructions,lvl:0,screen:'result',shift:last.customers??last.rows.map(r=>r.c),rows:last.rows,runs:history.map(r=>({...r,customers:r.customers??r.rows.map(v=>v.c)})),partial:null});if(raw)try{localStorage.setItem(storageKey+'-history',raw)}catch{}},[history])
+  function chooseLevel(n:number){if(busy||!unlocked(campaign,n))return;keepHistory();setLvl(n);setRuns([]);setRows([]);setPartial(null);setShift(pickShift(LEVELS[n]));setErr('');setScreen('write')}
   function resetProgress() {
     if (busy) return
     try { localStorage.removeItem(storageKey) } catch { /* reset still works in memory */ }
-    setCampaign(decodeCampaign(null)); setInstr(STARTER); setLvl(0); setShift(pickShift(LEVELS[0])); setRows([]); setRuns([]); setPartial(null); setFinishedRun(null); setErr(''); setResetOpen(false); setScreen('write')
+    try{localStorage.removeItem(storageKey+'-history')}catch{};setHistory([]);setCampaign(decodeCampaign(null)); setInstr(STARTER); setLvl(0); setShift(pickShift(LEVELS[0])); setRows([]); setRuns([]); setPartial(null); setFinishedRun(null); setErr(''); setResetOpen(false); setScreen('write')
   }
   const live = useMemo(() => simulate(shift.slice(0, rows.length), rows.map((r) => r.reply), partial?.instructions ?? instr, false, rows.map(r => r.instructions)), [shift, rows, instr, partial])
   const player = usePlayer(live.events, 0)
@@ -202,6 +208,7 @@ export default function App() {
       <div className="small" role="status">Game text and progress only. Don't enter passwords or personal secrets. {saveNotice} <button className="btn ghost" disabled={busy} onClick={() => setResetOpen(true)}>Reset progress</button>{screen !== 'story' && <button className="btn ghost" disabled={busy} onClick={() => setShowIntro(true)}>Watch intro</button>}</div>
       {resetOpen && <section className="card"><p>Reset saved instructions and all game progress on this browser? This cannot be undone.</p><button className="btn" onClick={resetProgress}>Reset everything</button><button className="btn ghost" onClick={() => setResetOpen(false)}>Keep my progress</button></section>}
 
+      {history.length>0&&screen!=='shift'&&screen!=='story'&&screen!=='meet'&&<details className="fold"><summary>Saved shift history ({history.length})</summary>{history.map((r,i)=><button key={i} className="btn ghost" disabled={busy} onClick={()=>{setRuns([r]);setShift(r.customers??r.rows.map(x=>x.c));setRows(r.rows);setScreen('result')}}>Earlier shift {i+1}: {r.rows.filter(v=>v.v.ok).length}/{r.planned} handled</button>)}</details>}
       {screen !== 'story' && screen !== 'meet' && screen !== 'shift' && <details className="fold"><summary>Level map - {campaign.cleared.length} / 7 cleared</summary>{campaign.previousOpeningBest!==undefined&&<p>Your earlier opening result ({campaign.previousOpeningBest} guests handled) is kept in history. The new quote-and-confirm opening goal needs its own verified run. Other level progress is kept.</p>}<div className="level-map">{LEVELS.map((l,n)=><button key={l.n} className="btn ghost" disabled={busy||!unlocked(campaign,n)} onClick={()=>chooseLevel(n)}>{campaign.cleared.includes(n)?'✓ ':unlocked(campaign,n)?'':'Locked: '}{l.title}{campaign.best[n]?' · best '+campaign.best[n]:''}</button>)}</div><p>Your instructions carry forward. Replaying a level keeps your cleared levels. Starting another level replaces the active shift, not past bests.</p></details>}
       {screen === 'story' && (
         <Story startLabel="Start" onStart={() => { click(); startMusic(); setScreen('meet') }} />
@@ -422,4 +429,4 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-}
+            }
