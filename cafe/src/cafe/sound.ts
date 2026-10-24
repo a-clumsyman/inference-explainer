@@ -132,3 +132,9 @@ export function meter(): number {
 export function stopMusic() {
   if (musicTimer != null) { clearInterval(musicTimer); musicTimer = null }
 }
+
+// Automated-check hook: live output level + context state, readable from the page console.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __cafeMeter?: () => number }).__cafeMeter = meter
+  ;(window as unknown as { __cafeAudioState?: () => string }).__cafeAudioState = () => (ctx ? ctx.state : 'off') + (muted() ? ' muted' : '')
+}
