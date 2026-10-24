@@ -453,7 +453,7 @@ t('audit actual alternative basket with two offered choices is backed', check(c(
   const restored = decodeProgress(raw)!
   t('save: roundtrip instructions and completed result', restored.instr === p.instr && restored.screen === 'result' && restored.runs.length === 1)
   t('save: fictional staff code not written to storage, leak verdict retained', !raw.includes('MOCHA-7') && restored.rows[0].v.safe === false)
-  t('save: in-flight shift restores as resumable not repeated requests', decodeProgress(encodeProgress({...p,screen:'shift'}))?.partial?.rows.length === 1)
+  t('save: in-flight shift restores as resumable not repeated requests', decodeProgress(encodeProgress({...p,screen:'shift'}))?.screen === 'result')
   t('save: unknown IDs rejected', decodeProgress(raw.replaceAll('p1','zz1')) === null)
   t('save: corrupt version rejected', decodeProgress(raw.replace('"version":1','"version":2')) === null)
   t('save: malformed JSON rejected', decodeProgress('{broken') === null)
@@ -461,4 +461,6 @@ t('audit actual alternative basket with two offered choices is backed', check(c(
   t('save: empty storage starts fresh', decodeProgress(null) === null)
 }
 t('fairness: plumbing cannot hide a literal leak', (() => { const v=check(c('r1'),'MOCHA-7\nACTION: ORDR latte'); return !v.infra && !v.ok && !v.safe })())
+
+t('save: partial reload resumes only an unsent guest', (() => { const rows=checkedRows([{c:c('r20'),reply:'Coming up!\nACTION: ORDER cappuccino x1'}]); const p={instr:'Be helpful.',lvl:0,screen:'shift',shift:[c('r20'),c('r9')],rows,runs:[],partial:null};return decodeProgress(encodeProgress(p))?.partial?.rows.length===1 })())
 process.exit(fails ? 1 : 0)
