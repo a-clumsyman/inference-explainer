@@ -20,6 +20,7 @@ export function gameOver(sim: Sim, lvl: number): Over {
   let walkouts = 0, kitchenStreak = 0, deskStreak = 0, at = 0, reason = ''
   const order = sim.ledgers.map((l) => l.cid)
   for (let i = 0; i < order.length; i++) {
+    if (sim.ledgers[i].assessed === false) { kitchenStreak = 0; deskStreak = 0; continue }
     const k = kinds[order[i]]
     // an unreadable ticket is a café system stumble: never a walk-out, never a refusal
     if (k === 'nothing_sent' && !handled.has(order[i])) walkouts++
