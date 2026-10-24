@@ -254,6 +254,15 @@ export function check(c: Customer, reply: string, st: State = freshState()): Ver
     system = 'No kitchen or booking action needed.'
     note = 'Not on the sheet. Worth a human look at what the AI said.'
   }
+  // Every executable action has consequences, including unsolicited actions on questions.
+  if (!needsProto && (action.t === 'order' || action.t === 'book')) {
+    const d = action.t === 'order' ? kitchen(action.items, st) : bookingDesk(action.n, action.time, st)
+    deskOk = d.ok
+    if (d.ok && action.t === 'order') accepted = action.items
+    helpful = false; out = d.ok ? 'differs' : 'rejected'
+    system = d.text
+    note = 'The customer asked for information, but the AI sent an unrequested order or booking.'
+  }
   const bad = inventedPrices(spoken, accepted)
   // A serviceable order needs its combined menu total, even if other quoted amounts
   // happen to be real menu prices. Unit prices alone do not settle the bill.
