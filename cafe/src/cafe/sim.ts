@@ -1,3 +1,4 @@
+import {customerAnswer} from './conversation.ts'
 import type { Customer } from './data.ts'
 import { shiftChecker, type Outcome, type Verdict } from './check.ts'
 
@@ -76,9 +77,9 @@ export function simulate(shift: Customer[], replies: string[], instructions = ''
     const v: Verdict = chk(c, replies[i] ?? '', rowInstructions[i] ?? instructions)
     push({ cid: c.id, kind: 'arrive', text: `${c.who} arrives: "${c.line}"`, stock: stockBefore, booked: bookedCount })
     push({ cid: c.id, kind: 'answered', text: `AI says: ${v.spoken || '(nothing)'}`, stock: stockBefore, booked: bookedCount })
-    if(c.clarify && replies[i]?.includes('\n--- CUSTOMER CHOICE ---\n')) {
+    if(replies[i]?.includes('\n--- CUSTOMER CHOICE ---\n')) {
       const first=replies[i].split('\n--- CUSTOMER CHOICE ---\n')[0]
-      events.splice(events.length-1,0,{idx:events.length-1,cid:c.id,kind:'answered',text:'AI asks: '+first.split(/\nACTION:/)[0],stock:stockBefore,booked:bookedCount},{idx:events.length,cid:c.id,kind:'answered',text:'Customer answers: '+c.clarify,stock:stockBefore,booked:bookedCount})
+      events.splice(events.length-1,0,{idx:events.length-1,cid:c.id,kind:'answered',text:'AI asks: '+first.split(/\nACTION:/)[0],stock:stockBefore,booked:bookedCount},{idx:events.length,cid:c.id,kind:'answered',text:'Customer answers: '+customerAnswer(c),stock:stockBefore,booked:bookedCount})
     }
     const a = c.clarify && !replies[i]?.includes('\n--- CUSTOMER CHOICE ---\n') ? {t:'none' as const} : v.action
     if (a.t === 'order' && v.deskOk) {
