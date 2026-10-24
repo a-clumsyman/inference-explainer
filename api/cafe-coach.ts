@@ -194,14 +194,14 @@ export default async function handler(req: any, res: any) {
     '- suggestedLine is one short reusable instruction (at most 35 words), not a fact summary or a per-product patch. Code owns all diagnosis/evidence fields.',
     '- A tip must make the AI DO the right thing for that customer, never dodge the check. Preserve what the customer asked for: their items, facts and requirements stay intact. If only part of a request is possible (low stock, party too big, slot full), the tip teaches the AI to offer the part that IS possible and be honest about the rest, not to refuse the whole request. Offer alternatives for the customer to choose; never silently substitute items, reduce a party, change a time or place an unapproved alternative order.',
     '- Never suggest hiding or omitting information (no dropping prices, stock, limits or facts from replies), never suggest answering less, and never suggest wording that only avoids being caught. The tip must solve the real problem the evidence shows.',
-    '- Before writing each tip, identify the exact mismatch between the request, reply and cafe result. A generic slogan is not enough: the change must name that mismatch using the evidence, and the watch must check truthful customer-facing words AND the matching action, not merely whether a desk accepts it. SuggestedLine should teach a reusable principle beyond the named items, not a separate rule for each product. If an alternative needs agreement, teach offering it for confirmation, with no order or booking until the customer agrees.',
-    '- Use the real numbers in the evidence. When it gives a correct till total or actual remaining stock, name the correct numbers in change/watch, and teach the calculation or current-state check in suggestedLine.',
+    '- Base the proposed instruction on the structured mismatch. Teach a reusable principle beyond the named items. If an alternative needs agreement, teach offering it for confirmation, with no order or booking until the customer agrees.',
+    '- Teach calculation or current-state checks when the structured evidence shows those failures. Do not restate amounts or stock in the proposed instruction; code displays those facts.',
     '- If player instructions caused the wrong behavior, propose replacing that instruction rather than adding a conflicting rule. Quote the original exactly in relatedLine. Do not blame a generic starter for a specific mistake.',
     '- Never invent cafe capabilities to save a request. The booking desk accepts ONE table only, for at most four people. It cannot split groups or join tables. A different time never makes a too-large party fit. Mention alternatives only when the supplied facts support them; otherwise explain the exact limit honestly without pretending the request can be completed.',
-    '- Before returning, check each tip: does change name the actual incorrect behavior and correct current facts? Would suggestedLine help a different item or customer with the same underlying issue? Does watch check the requested outcome, not a hidden error or a smaller substitute? Does it preserve customer choice? Rewrite any tip that fails. Never describe a wrong claim from the AI reply as a true fact.',
+    '- Before returning, check that suggestedLine helps a different customer with the same underlying issue and preserves customer choice. Never treat a wrong claim from the AI reply as a fact.',
     '- If their instructions already contain something relevant, say so and refine it instead of repeating it.',
     '- "relatedLine": if one existing line of the player\'s instructions likely contributed to this problem, quote it EXACTLY as written (copy the words, no changes). If no specific line is responsible, use an empty string. Never invent or paraphrase the quote.',
-    '- "summary": one or two sentences on the main pattern. No praise filler.',
+    '- Set summary to an empty string. Code supplies the evidence and result text.',
     '- The player is new to AI. Use plain everyday words. Never say "prompt", "protocol", "token" or "ACTION line"; say "instructions" and "the kitchen order line". First say what happened and why it matters in one sentence, then the fix.',
     '- Never mention or guess any staff code or secret. Simple words. No em dashes.',
     '',
@@ -247,4 +247,4 @@ export default async function handler(req: any, res: any) {
     return [{ customerId: e.customerId, capability: tip.capability, change: e.note + ' ' + e.system, suggestedLine: line, relatedLine: tip.relatedLine || '', watch: 'Compare the next reply and action with the requested outcome and current facts shown above.', facts: e.facts }]
   })
   return res.status(200).json({ summary: '', tips: cleanTips })
-  }
+}
