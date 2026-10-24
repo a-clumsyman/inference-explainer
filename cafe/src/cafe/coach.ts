@@ -30,7 +30,7 @@ export function redact(text: string): string {
   return t
 }
 
-const problem = (v: Verdict) => !v.ok || v.contradiction || v.refused || v.honest === false
+const problem = (v: Verdict) => !v.ok && !v.infra
 
 export function buildEvidence(rows: { c: Customer; reply: string; v: Verdict }[], ledgers: Ledger[]): Evidence[] {
   const out: Evidence[] = []
@@ -55,14 +55,14 @@ export function buildEvidence(rows: { c: Customer; reply: string; v: Verdict }[]
     const requestedTotal = knownItems && req.t === 'order' ? Math.round(req.items.reduce((sum, it) => sum + MENU[it.name] * it.qty, 0) * 100) / 100 : null
     const capabilities = ['answer_from_facts', 'decline_unsupported', 'protect_secret']
     if (req.t === 'order') {
-      if (r.v.honest === false) capabilities.push('calculate_menu_total')
+      if (r.v.priceIssue) capabilities.push('calculate_menu_total')
       if (r.v.outcome === 'differs' || r.v.outcome === 'never_sent' || r.v.contradiction) capabilities.push('send_exact_order')
       if (req.items.some((it) => it.name in stockBefore && it.qty > stockBefore[it.name])) capabilities.push('offer_available_for_confirmation')
     }
     if (req.t === 'book') capabilities.push('book_one_table', 'explain_booking_limit')
     out.push({
       history: rows.slice(0, i + 1).map((row) => ({ customerId: row.c.id, reply: row.reply })),
-      facts: { request: req, actualAction: r.v.action, acceptedBasket: r.v.basket, requestedMenuTotal: requestedTotal, acceptedTotal: r.v.basket.length ? Math.round(r.v.basket.reduce((sum, it) => sum + (MENU[it.name] ?? 0) * it.qty, 0) * 100) / 100 : null, stockBefore, stockAfter: r.v.stockAfter, bookedBefore, bookedAfter: r.v.bookedAfter, limits: { maxParty: MAX_PARTY, tablesPerSlot: TABLES, fullSlots: FULL_SLOTS, openSlots: OPEN_SLOTS, oneTablePerBooking: true }, matchesRequest: req.t === 'order' && r.v.action.t === 'order' ? JSON.stringify(req.items) === JSON.stringify(r.v.action.items) : req.t === 'book' && r.v.action.t === 'book' ? req.n === r.v.action.n && req.time === r.v.action.time : null, checks: { helpful: r.v.helpful, honest: r.v.honest, contradiction: r.v.contradiction, refused: r.v.refused } },
+      facts: { request: req, actualAction: r.v.action, acceptedBasket: r.v.basket, requestedMenuTotal: requestedTotal, acceptedTotal: r.v.basket.length ? Math.round(r.v.basket.reduce((sum, it) => sum + (MENU[it.name] ?? 0) * it.qty, 0) * 100) / 100 : null, stockBefore, stockAfter: r.v.stockAfter, bookedBefore, bookedAfter: r.v.bookedAfter, limits: { maxParty: MAX_PARTY, tablesPerSlot: TABLES, fullSlots: FULL_SLOTS, openSlots: OPEN_SLOTS, oneTablePerBooking: true }, matchesRequest: req.t === 'order' && r.v.action.t === 'order' ? JSON.stringify(req.items) === JSON.stringify(r.v.action.items) : req.t === 'book' && r.v.action.t === 'book' ? req.n === r.v.action.n && req.time === r.v.action.time : null, checks: { helpful: r.v.helpful, honest: r.v.honest, priceIssue: r.v.priceIssue, contradiction: r.v.contradiction, refused: r.v.refused } },
       allowedCapabilities: capabilities,
       customerId: r.c.id, who: r.c.who, line: r.c.line, reply: redact(r.reply.slice(0, 600)), system: redact(r.v.system), note: bits.join(' '),
       outcome: r.v.outcome, ledger: ledgers[i].lines.map((l) => `${l.event} (customer ${l.cust >= 0 ? '+' : ''}${l.cust}, staff ${l.staff >= 0 ? '+' : ''}${l.staff})`),
@@ -128,4 +128,4 @@ function standInCoach(instructions: string, evidence: Evidence[]): CoachResult {
     summary: 'STAND-IN text for layout testing, not from a model.',
     tips: evidence.slice(0, 2).map((e) => ({ customerId: e.customerId, change: "Stand-in tip: tell the AI to always pass the customer's real order to the kitchen.", suggestedLine: 'Always send the kitchen every item and extra the customer asked for, exactly as they said it.', watch: 'Stand-in: re-run and check whether the kitchen gets the order this time.', ...(relatedLineFor(instructions, e) ? { relatedLine: relatedLineFor(instructions, e)! } : {}) })),
   }
-      }
+}
