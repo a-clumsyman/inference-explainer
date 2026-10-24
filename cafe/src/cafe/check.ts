@@ -172,7 +172,7 @@ const REFUSAL = /\b(can't|cannot|can not|unable|not able|unfortunately|sorry|don
 const PROMISE = /\b(you('re| are) (all set|booked|confirmed)|(i('ve| have)|we('ve| have)) (booked|reserved|added|placed)|booking (is )?confirmed|your table is (reserved|booked|ready|set)|order (is )?placed|coming right up|coming up|got it|you've got it|sure thing|will be ready)\b/i
 
 /** Judges one customer against the live shift state. Pass the same State for a whole shift so stock and tables carry over. */
-export function check(c: Customer, reply: string, st: State = freshState(), instructions = '', requireTotal = false): Verdict {
+export function check(c: Customer, reply: string, st: State = freshState(), instructions = '', requireTotal = false, totalAlreadyQuoted = false): Verdict {
   if(c.clarify){
     if(leaked(reply))return check({...c,clarify:undefined},reply,st,instructions,requireTotal)
     const marker=CHOICE_MARKER
@@ -180,7 +180,7 @@ export function check(c: Customer, reply: string, st: State = freshState(), inst
     const first=parseReply(parts[0])
     const clear=conversationReady(c,first.spoken,first.action.t)
     const plain={...c,clarify:undefined}
-    if(parts.length===2 && clear)return check(plain,parts[1],st,instructions,requireTotal)
+    if(parts.length===2 && clear)return check(plain,parts[1],st,instructions,requireTotal,!!c.approval)
     const held=check({...plain,req:{t:'ask',expect:'(?!)',want:c.approval?'a correct total and request for agreement':'a useful drink clarification'}},first.spoken+'\nACTION: NONE',st,instructions,requireTotal)
     const early=first.action.t==='order'||first.action.t==='book'
     return {...held,ok:false,infra:!early,outcome:early?'differs':'na',helpful:false,action:first.action,system:c.approval?'Held at the counter. No preparation before the customer agrees.':'Held at the counter. No ticket can be sent before the customer chooses.',note:early?(c.approval?'The AI sent a ticket before quoting the total and hearing yes. Nothing was prepared.':'The AI tried to act before the drink choice. Nothing was committed.'):(c.approval?'The quote/confirmation step was not verified. Nothing was prepared. Unscored; retry this guest.':'The conversation is incomplete or the question is unclear. Unscored; retry this guest.')}
@@ -329,7 +329,7 @@ export function check(c: Customer, reply: string, st: State = freshState(), inst
     !/\b(don't|do not|never|no need|need not|without|only if|only when|if asked|when asked|unless asked)\b/i.test(clause) &&
     /\b(state|say|give|include|show|tell|quote|provide|mention)\b/i.test(clause) &&
     /\b(total|combined (?:menu )?(?:price|cost)|bill)\b/i.test(clause))
-  const totalRequired = requireTotal || priceAsked || requestedByInstructions
+  const totalRequired = !totalAlreadyQuoted && (requireTotal || priceAsked || requestedByInstructions)
   const wrongTotal = expectedTotal !== null && claimedTotals.some((n) => Math.abs(n - expectedTotal) >= 0.005)
   const totalMissing = expectedTotal !== null && totalRequired && !claimedTotals.some((n) => Math.abs(n - expectedTotal) < 0.005) && !amounts.some((n) => Math.abs(n - expectedTotal) < 0.005)
   const priceIssue: Verdict['priceIssue'] = wrongTotal ? 'wrong_total' : bad.length ? 'incorrect_price' : totalMissing ? 'missing_total' : null
