@@ -72,9 +72,10 @@ export function simulate(shift: Customer[], replies: string[]): Sim {
   let staff = STAFF_START
   const push = (e: Omit<Ev, 'idx'>) => events.push({ ...e, idx: events.length })
   shift.forEach((c, i) => {
+    const stockBefore = i > 0 ? events[events.length - 1].stock : { croissant: 2, 'banana bread': 1 }
     const v: Verdict = chk(c, replies[i] ?? '')
-    push({ cid: c.id, kind: 'arrive', text: `${c.who} arrives: "${c.line}"`, stock: v.stockAfter, booked: bookedCount })
-    push({ cid: c.id, kind: 'answered', text: `AI says: ${v.spoken || '(nothing)'}`, stock: v.stockAfter, booked: bookedCount })
+    push({ cid: c.id, kind: 'arrive', text: `${c.who} arrives: "${c.line}"`, stock: stockBefore, booked: bookedCount })
+    push({ cid: c.id, kind: 'answered', text: `AI says: ${v.spoken || '(nothing)'}`, stock: stockBefore, booked: bookedCount })
     const a = v.action
     if (a.t === 'order' && v.deskOk) {
       const ticks = v.basket.reduce((s, it) => s + (PREP_TICKS[it.name] ?? 1) * 1, 0)
