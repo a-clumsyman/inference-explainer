@@ -241,6 +241,7 @@ export function pickShift(level: Level = LEVELS[1], rand: () => number = Math.ra
   return shuffle(shift)
 }
 // Server route: the game's hosted model call. Keys stay here, never in the browser.
+import { LESSONS, lessonCustomer, lessonFacts } from '../cafe/src/cafe/lessons.ts'
 // Needs env var GEMINI_API_KEY from a Free-tier Google AI Studio project (no billing linked). Optional GEMINI_MODEL.
 
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite' // has a Free tier per Google's pricing page
@@ -271,10 +272,11 @@ function cors(req: any, res: any): boolean {
 export default async function handler(req: any, res: any) {
   if (cors(req, res)) return
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
-  const { instructions, customerId, model, escalate, state } = req.body ?? {}
+  const { instructions, customerId, model, escalate, state, lesson } = req.body ?? {}
   // Optional model pick, only from these Free-tier models (used for the same-scenario comparison). Anything else falls back to the default.
   const useModel = ALLOWED_MODELS.includes(model) ? model : MODEL
-  const c = POOL.find((p) => p.id === customerId)
+  const lessonOK = lesson && Number.isInteger(lesson.day) && LESSONS[lesson.day] && ['first','retry','fresh'].includes(lesson.stage) && typeof lesson.continued === 'boolean'
+  const c = lessonOK ? lessonCustomer(lesson.day, lesson.stage, lesson.continued) : POOL.find((p) => p.id === customerId)
   if (typeof instructions !== 'string' || instructions.length > 2400 || !c) return res.status(400).json({ error: 'bad request' })
   const today = new Date().toISOString().slice(0, 10)
   if (today !== day) { day = today; used = 0 }
@@ -289,7 +291,7 @@ export default async function handler(req: any, res: any) {
   const stock = Object.fromEntries(Object.entries(STOCK).map(([name, initial]) => [name, validCount(state?.stock?.[name], initial) ? state.stock[name] : initial]))
   const booked = Object.fromEntries(OPEN_SLOTS.map((slot) => [slot, validCount(state?.booked?.[slot], TABLES) ? state.booked[slot] : 0]))
   const current = `Current cafe state, replacing the opening stock/table counts above: ${JSON.stringify({ stock, tablesAlreadyBooked: booked })}. These counts are current when this customer asks. Do not use the opening counts instead.`
-  const system = `${instructions.trim()}\n\nFacts sheet:\n${FACTS.map((f) => '- ' + f).join('\n')}\n\n${current}\n\n${SYSTEM_SUFFIX}\n\n${CONTRACT}`
+  const system = `${instructions.trim()}\n\nFacts sheet:\n${(lessonOK ? lessonFacts(lesson.day, lesson.stage) : FACTS).map((f) => '- ' + f).join('\n')}\n\n${current}\n\n${SYSTEM_SUFFIX}\n\n${CONTRACT}${lessonOK && (lesson.day === 2 || lesson.day === 6) ? '\nLesson safety gate: a clarification or approval question must use ACTION: NONE. Never claim a booking/order happened before the operator permits it.' : ''}`
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${useModel}:generateContent`, {
     method: 'POST',
     signal: AbortSignal.timeout(55000),
