@@ -258,3 +258,7 @@ textarea:focus{outline:none;border-color:var(--acc)}
 .saybubble.custsay,.saybubble.aisay{position:static;max-width:none;width:auto;font-size:18px;line-height:1.2;margin:0;box-shadow:none}
 .saybubble .saytxt,.saybubble.custsay .saytxt{display:block;-webkit-line-clamp:unset;overflow:visible}
 .stagewrap>svg{order:0}.saybubble.custsay{order:1}.saybubble.aisay{order:2}
+
+/* Light transcript cards need dark text at every nesting level. */
+.sumcard .l2,.sumcard .l3{color:#3a2a22;opacity:1}
+.sumcard .l3{opacity:.8}
