@@ -3,7 +3,7 @@ import { shiftChecker } from '../cafe/src/cafe/check.ts'
 import { simulate } from '../cafe/src/cafe/sim.ts'
 import { buildEvidence } from '../cafe/src/cafe/coach.ts'
 // Server route: post-shift coaching. Not a general proxy: evidence must match known game customers, sizes are capped, output is JSON tips only. Same free-tier Gemini key as cafe-reply. Fails closed, no paid fallback.
-const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash'
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
 // Best-effort per-instance counter only (serverless memory). The real limit is the Google free tier with no billing linked.
 const DAILY_CAP = Number(process.env.CAFE_COACH_DAILY_CAP || 150)
 let day = ''
@@ -216,7 +216,7 @@ export default async function handler(req: any, res: any) {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: user }] }],
-      generationConfig: { maxOutputTokens: 3072, responseMimeType: 'application/json', responseSchema: SCHEMA, thinkingConfig: { thinkingLevel: 'medium' } },
+      generationConfig: { maxOutputTokens: 1600, temperature: 0.4, responseMimeType: 'application/json', responseSchema: SCHEMA, thinkingConfig: { thinkingLevel: 'minimal' } },
     }),
   })
   if (!r.ok) {
