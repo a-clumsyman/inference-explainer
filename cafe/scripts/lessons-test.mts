@@ -49,9 +49,8 @@ t('save approval persists only as explicit record',decodeLessonProgress(encodeLe
 
 
 const appSource=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8')
-const curriculumSource=readFileSync(new URL('../src/Curriculum.tsx',import.meta.url),'utf8')
-t('one cafe entry has no mode switch or URL bypass',appSource.includes('return <Curriculum/>')&&!appSource.includes('MixedApp')&&!appSource.includes('location.search'))
-t('journey has no separate mode exits',!curriculumSource.includes('onMixed')&&!/old café|mixed shift|mixed-shift/i.test(curriculumSource))
-t('extra practice stays inside lessons',curriculumSource.includes('choose any day above to repeat its challenge'))
+t('original gameplay entry restored',appSource.includes('export default function App()')&&appSource.includes('async function playShift')&&!appSource.includes('Curriculum'))
+t('restoration keeps neutral system checks',appSource.includes('No guests scored yet')&&appSource.includes('Nothing here was scored against your instructions.'))
+t('restoration keeps browser save and review loop',appSource.includes('decodeProgress')&&appSource.includes('Review with Biscuit')&&appSource.includes('Resume the shift at customer'))
 
 console.log(`${count} lesson checks passed`)
