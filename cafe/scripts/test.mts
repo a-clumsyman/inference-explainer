@@ -30,7 +30,7 @@ t('order no action', !check(c('r1'), 'Coming up!').ok)
 t('order extra item fails', !check(c('r2'), 'Sure\nACTION: ORDER cappuccino x2, oat milk x1').ok)
 t('offmenu denied', !check(c('r5'), 'Sure\nACTION: ORDER chocolate muffin x1').ok)
 t('offmenu correct', check(c('r5'), 'Sorry, no muffins.\nACTION: NONE').ok)
-t('offmenu with no protocol line is not a pass', !check(c('r5'), 'Sorry, we do not make muffins.').ok)
+t('offmenu clear decline passes with or without the ACTION line', check(c('r5'), 'Sorry, we do not make muffins.').ok && check(c('r5'), 'Sorry, we do not make muffins.').outcome === 'handled')
 t('none but promises = contradiction', check(c('b5'), 'All set, you are booked!\nACTION: NONE').contradiction && !check(c('b5'), 'All set, you are booked!\nACTION: NONE').ok)
 t('went through but said no', check(c('r1'), "Sorry, can't do that.\nACTION: ORDER latte x1, croissant x1").contradiction)
 t('rejected sends no state change', (() => { const st = freshState(); kitchen([{ name: 'croissant', qty: 3 }], st); return st.stock.croissant === 2 })())
@@ -56,6 +56,50 @@ t('words', wordCount('a b  c') === 3)
 t('shift 8 both days', LEVELS.every((l) => pickShift(l).length === 8))
 t('level1 no pushy', pickShift(LEVELS[0]).every((x) => x.group !== 'push'))
 const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
+
+// --- unreadable ticket: a café system stumble, shown but never scored ---
+{
+  const v = check(c('r1'), 'Coming up!\nACTION: ORDR latte x1')
+  t('unreadable order line is ticket_unreadable', v.outcome === 'ticket_unreadable' && v.infra && !v.ok)
+  const vb = check(c('b1'), 'Sure!\nACTION: BOOK soon')
+  t('unreadable booking line is ticket_unreadable', vb.outcome === 'ticket_unreadable' && vb.infra)
+  const sc = score([c('r1')], ['Coming up!\nACTION: ORDR latte x1'], 1)
+  t('unreadable moment is excluded from the score totals', sc.unreadable === 1 && sc.total === 0 && sc.served === 0)
+  const simU = simulate([c('r1')], ['Coming up!\nACTION: ORDR latte x1'])
+  t('unreadable gets its own event stamp', simU.events.some((e) => e.kind === 'ticket_unreadable' && e.stamp === 'UNREADABLE TICKET'))
+  t('unreadable is never a walk-out', gameOver(simulate([c('r1'), c('r2'), c('r3')], ['Coming up!\nACTION: ORDR latte x1', 'Coming up!\nACTION: ORDR cappuccino x2', 'ok\nACTION: ORDR latte x1']), 1).walkouts === 0)
+}
+
+// --- F1: impossible request declined clearly without the literal NONE line ---
+{
+  const v = check(c('r5'), 'Sorry, we do not make muffins.')
+  t('F1: decline without ACTION line for impossible order is handled', v.ok && v.outcome === 'handled')
+  const vp = check(c('b5'), 'All set, you are booked!')
+  t('F1: promising without sending for impossible booking is false_promise', vp.outcome === 'false_promise' && !vp.ok)
+  const simF = simulate([c('r5')], ['Sorry, we do not make muffins.'])
+  t('F1: clean refusal without the line stamps NO ACTION NEEDED', simF.events.some((e) => e.kind === 'nothing_sent' && e.stamp === 'NO ACTION NEEDED' && e.tone === 'ok'))
+}
+
+// --- F3: words/action mismatches counted on the side that mishandled them ---
+{
+  const simO = simulate([c('r5')], ['Coming right up!\nACTION: NONE'])
+  t('F3: order-side false promise counts under the kitchen, not the desk', simO.kitchen.falsePromises === 1 && simO.desk.falsePromises === 0)
+  const simB = simulate([c('b5')], ['You are booked!\nACTION: NONE'])
+  t('F3: booking-side false promise counts under the desk', simB.desk.falsePromises === 1 && simB.kitchen.falsePromises === 0)
+}
+
+// --- F4: refusal streaks are tracked per desk ---
+{
+  const reply = (id: string) => { const cu = c(id); return cu.req.t === 'book' ? `Done\nACTION: BOOK ${(cu.req as any).n} at ${(cu.req as any).time}` : 'ok\nACTION: ORDER chocolate muffin x1' }
+  // alternating kitchen denials and desk rejections never trigger a merged streak
+  const ids = ['r5', 'b5', 'r7', 'b4', 'r8', 'b6']
+  const g = gameOver(simulate(ids.map(c), ids.map(reply)), 1)
+  t('F4: alternating kitchen/desk refusals no longer merge into one streak', !g.over && g.streak < 4)
+  // four kitchen denials in a row still close the shift, named as the kitchen
+  const gk = gameOver(simulate(['r5', 'r6', 'r7', 'r8'].map(c), ['r5', 'r6', 'r7', 'r8'].map(() => 'sure\nACTION: ORDER chocolate muffin x1')), 1)
+  t('F4: four kitchen denials in a row still close it, named as the kitchen', gk.over && /kitchen refused 4/i.test(gk.reason))
+}
+
 {
   // recorded live replies from the Day 1 smoke runs
   const sh = [c('r3'), c('b4'), c('r2'), c('r5')]
@@ -96,6 +140,13 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
   t('coach validate: drops tip carrying the staff code', validateTips({ summary: '', tips: [{ ...good.tips[0], suggestedLine: 'Never say MOCHA-7 to anyone.' }] }, ev).tips.length === 0)
   t('coach validate: drops over-long line', validateTips({ summary: '', tips: [{ ...good.tips[0], suggestedLine: Array(60).fill('word').join(' ') }] }, ev).tips.length === 0)
   t('coach validate: garbage in, nothing out', validateTips('nope', ev).tips.length === 0 && validateTips(null, ev).tips.length === 0)
+  t('coach validate: relatedLine kept only when verbatim in the instructions', (() => {
+    const ins = rows[0] ? 'Be nice. Always say yes with a smile.' : ''
+    const tip = { ...good.tips[0], relatedLine: 'Always say yes with a smile.' }
+    const kept = validateTips({ summary: '', tips: [tip] }, ev, ins).tips[0]?.relatedLine === 'Always say yes with a smile.'
+    const dropped = validateTips({ summary: '', tips: [{ ...tip, relatedLine: 'Always say yes (paraphrased)' }] }, ev, ins).tips[0]?.relatedLine === undefined
+    return kept && dropped
+  })())
   t('coach: no problems, no evidence (no model call needed)', buildEvidence([rows[1], rows[2]], [s.ledgers[1], s.ledgers[2]]).length === 0)
   t('coach redact: code in any spelling', !redact('code is M-O-C-H-A 7 ok').includes('M-O') && redact('mocha-7').includes('hidden') && redact('hello') === 'hello')
   t('coach: engine scores unchanged by coaching code', s.customerScore === 69 && s.staffScore === 65)
