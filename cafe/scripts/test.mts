@@ -296,4 +296,19 @@ t('pass rule: never zero or negative', [1,2,3,4,5,8,12].every((n) => passMarkFor
   t('gates sit just past each mood event', moodIdx.length === 2 && moodIdx.every((i) => g.has(i + 1)) && g.size === 2)
   t('no gate on other events', !g.has(0) && !g.has(moodIdx[0]))
 }
+
+
+// Current evidence is about the state when the customer asked, never the opening sheet.
+{
+  const customers = ['r1', 'r6'].map(c)
+  const replies = ['Coming up\nACTION: ORDER latte x1, croissant x1', 'Only two left\nACTION: ORDER croissant x2']
+  const checker = shiftChecker()
+  const rows = customers.map((cu, i) => ({ c: cu, reply: replies[i], v: checker(cu, replies[i]) }))
+  const sim = simulate(customers, replies)
+  const evidence = buildEvidence(rows, sim.ledgers)
+  t('coach evidence uses current stock 1 not opening 2', evidence[0].note.includes('croissant: 1 left when they asked'))
+  t('arrival shows stock before transaction', sim.events[0].stock?.croissant === 2)
+  t('accepted ticket shows stock after transaction', sim.events.find((e) => e.kind === 'ticket_received')?.stock?.croissant === 1)
+}
+
 process.exit(fails ? 1 : 0)
