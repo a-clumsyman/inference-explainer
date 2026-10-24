@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { MAX_WORDS, type Customer } from './cafe/data.ts'
-import { wordCount, describeAction, type Verdict } from './cafe/check.ts'
+import { wordCount, describeAction, checkedRows, reviewMoments, type Verdict } from './cafe/check.ts'
 import type { Sim } from './cafe/sim.ts'
 import { askCoach, buildEvidence, CoachPaused, type CoachResult, type Tip } from './cafe/coach.ts'
 import { BISCUIT } from './cafe/sprites.ts'
@@ -11,7 +11,6 @@ import { meow } from './cafe/sound.ts'
 type Row = { c: Customer; reply: string; v: Verdict }
 export type Run = { instructions: string; rows: Row[]; planned: number }
 
-const problem = (v: Verdict) => !v.ok || v.contradiction || v.refused || v.honest === false
 
 const STAMP: Record<string, { label: string; cls: string }> = {
   handled: { label: 'HANDLED', cls: 'ok' },
@@ -36,7 +35,7 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
   onEditMyself: () => void
   onDone: () => void
 }) {
-  const moments = useMemo(() => run.rows.map((r, i) => ({ ...r, i })).filter((r) => problem(r.v)), [run])
+  const moments = useMemo(() => reviewMoments(checkedRows(run.rows, run.instructions)), [run])
   const [n, setN] = useState(0)
   const [coach, setCoach] = useState<CoachResult | null>(null)
   const [coachBusy, setCoachBusy] = useState(false)
@@ -57,7 +56,7 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
   }
 
   const m = moments[Math.min(n, moments.length - 1)]
-  const stamp = m.v.honest === false ? { label: 'PRICE MISMATCH', cls: 'no' } : STAMP[m.v.outcome] ?? STAMP.na
+  const stamp = m.v.priceIssue ? { label: m.v.priceIssue === 'missing_total' ? 'NO TOTAL GIVEN' : m.v.priceIssue === 'wrong_total' ? 'PRICE MISMATCH' : 'INCORRECT PRICE', cls: 'no' } : STAMP[m.v.outcome] ?? STAMP.na
   const tip: Tip | undefined = coach?.tips.find((t) => t.customerId === m.c.id)
   const revised = (t: Tip) => t.relatedLine && instr.includes(t.relatedLine) ? instr.replace(t.relatedLine, t.suggestedLine) : instr.trimEnd() + (instr.trim() ? '\n' : '') + t.suggestedLine
   const fits = tip ? wordCount(revised(tip)) <= MAX_WORDS : false
