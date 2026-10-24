@@ -243,3 +243,12 @@ textarea:focus{outline:none;border-color:var(--acc)}
 
 /* room to scroll the last lines clear of the sticky review bar */
 .card:has(> .reviewbar){padding-bottom:140px}
+/* welcome intro: new-sprite maker + Biscuit, and the header sound toggle */
+.makerimg{width:48px;height:auto;image-rendering:pixelated}
+.storycat{position:absolute;left:62%;bottom:6%;display:flex;flex-direction:column;align-items:center;gap:2px}
+.storycat.pop{animation:hop .45s ease-out}
+.storycat .catwrap{position:relative;width:30px;height:40px}
+.storycat .catpix{position:absolute;left:0;bottom:0;width:30px;height:auto;image-rendering:pixelated}
+.storycat .catpix.blink{animation:catblink 2.4s steps(1) infinite}
+@media (prefers-reduced-motion: reduce){.storycat.pop{animation:none}.storycat .catpix.blink{animation:none;opacity:0}}
+.soundbtn{background:none;border:2px solid var(--line);color:var(--dim);font-size:15px;line-height:1;padding:3px 7px;cursor:pointer;font-family:inherit}
