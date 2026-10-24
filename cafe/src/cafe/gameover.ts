@@ -17,14 +17,17 @@ export function gameOver(sim: Sim, lvl: number): Over {
   const kinds: Record<string, string> = {}
   for (const e of sim.events) if (['nothing_sent', 'ticket_denied', 'booking_rejected'].includes(e.kind)) kinds[e.cid] = e.kind
   const handled = new Set(sim.ledgers.filter((l) => l.outcome === 'handled').map((l) => l.cid))
-  let walkouts = 0, streak = 0, at = 0, reason = ''
+  let walkouts = 0, kitchenStreak = 0, deskStreak = 0, at = 0, reason = ''
   const order = sim.ledgers.map((l) => l.cid)
   for (let i = 0; i < order.length; i++) {
     const k = kinds[order[i]]
+    // an unreadable ticket is a café system stumble: never a walk-out, never a refusal
     if (k === 'nothing_sent' && !handled.has(order[i])) walkouts++
-    streak = k === 'ticket_denied' || k === 'booking_rejected' ? streak + 1 : 0
+    kitchenStreak = k === 'ticket_denied' ? kitchenStreak + 1 : 0
+    deskStreak = k === 'booking_rejected' ? deskStreak + 1 : 0
     if (!reason && walkouts >= WALKOUTS_MAX) { reason = `${walkouts} customers left without being served (nothing reached the kitchen or desk).`; at = i + 1 }
-    if (!reason && streak >= REFUSALS_IN_A_ROW) { reason = `The kitchen or desk refused ${streak} requests in a row.`; at = i + 1 }
+    if (!reason && kitchenStreak >= REFUSALS_IN_A_ROW) { reason = `The kitchen refused ${kitchenStreak} requests in a row.`; at = i + 1 }
+    if (!reason && deskStreak >= REFUSALS_IN_A_ROW) { reason = `The booking desk refused ${deskStreak} requests in a row.`; at = i + 1 }
   }
-  return { over: !!reason && lvl >= 1, warn: !!reason && lvl < 1, at, reason, walkouts, streak }
+  return { over: !!reason && lvl >= 1, warn: !!reason && lvl < 1, at, reason, walkouts, streak: Math.max(kitchenStreak, deskStreak) }
 }

@@ -1,4 +1,7 @@
-import { FACTS, SYSTEM_SUFFIX, POOL } from './data.ts'
+import { FACTS, SYSTEM_SUFFIX, CONTRACT, POOL } from './data.ts'
+
+// When the game is iframed/served from clumsyman.xyz, the API lives on the origin that hosts the functions.
+const API_BASE = typeof location !== 'undefined' && ['clumsyman.xyz', 'www.clumsyman.xyz'].includes(location.hostname) ? 'https://inference-explainer.vercel.app' : ''
 
 export interface Engine {
   /** hosted engines answer by customer id so the server can rebuild the prompt */
@@ -12,7 +15,7 @@ export interface Engine {
 }
 
 export function systemPrompt(instructions: string): string {
-  return `${instructions.trim()}\n\nFacts sheet:\n${FACTS.map((f) => '- ' + f).join('\n')}\n\n${SYSTEM_SUFFIX}`
+  return `${instructions.trim()}\n\nFacts sheet:\n${FACTS.map((f) => '- ' + f).join('\n')}\n\n${SYSTEM_SUFFIX}\n\n${CONTRACT}`
 }
 
 /** Real model running in the player's browser (WebGPU). */
@@ -99,7 +102,7 @@ export function hosted(): Engine {
     async replyFor(instructions, customerId, escalate) {
       // The free tier has a per-minute limit. On a rate-limit answer, wait and retry a few times.
       for (let attempt = 0; ; attempt++) {
-        const r = await fetch('/api/cafe-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions, customerId, escalate: escalate === true }) })
+        const r = await fetch(API_BASE + '/api/cafe-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions, customerId, escalate: escalate === true }) })
         const j = await r.json().catch(() => ({}))
         const spent = j.kind === 'daily'
         if (r.status === 429 && !spent && attempt < 2) { await new Promise((res) => setTimeout(res, 7000)); continue }

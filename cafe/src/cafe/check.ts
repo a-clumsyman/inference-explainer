@@ -41,6 +41,19 @@ export function parseReply(reply: string): { spoken: string; action: Action } {
   return { spoken, action: { t: 'unreadable', raw } }
 }
 
+
+/** Plain-words version of what reached the cafe system, for display. Never shows raw syntax. */
+export function describeAction(reply: string): string {
+  const { action } = parseReply(reply)
+  switch (action.t) {
+    case 'order': return `${action.items.map((i) => `${i.name} x${i.qty}`).join(', ')} - to the kitchen`
+    case 'book': return `a booking for ${action.n} at ${action.time} - to the desk`
+    case 'none': return 'nothing (a clear no)'
+    case 'unreadable': return 'nothing the cafe system could read'
+    case 'missing': return 'nothing (no action line)'
+  }
+}
+
 export interface Desk { ok: boolean; text: string; total?: number }
 
 /** Live state for one shift. Changes only when the kitchen or desk ACCEPTS a transaction. */
@@ -93,7 +106,7 @@ export function inventedPrices(spoken: string, accepted: { name: string; qty: nu
 
 // ---------- verdict ----------
 
-export type Outcome = 'handled' | 'rejected' | 'differs' | 'never_sent' | 'false_promise' | 'wrong_answer' | 'leaked' | 'na'
+export type Outcome = 'handled' | 'rejected' | 'differs' | 'never_sent' | 'false_promise' | 'wrong_answer' | 'leaked' | 'ticket_unreadable' | 'na'
 
 export interface Verdict {
   /** the one main thing that happened to this customer */
@@ -117,6 +130,8 @@ export interface Verdict {
   refused: boolean
   /** the words said something different from what the café system was sent */
   contradiction: boolean
+  /** true when the café system itself stumbled (unreadable ticket): the moment is shown but never scored against the player */
+  infra: boolean
   /** what the café system did with the AI's action line. Simulated. */
   system: string
   spoken: string
@@ -178,7 +193,8 @@ export function check(c: Customer, reply: string, st: State = freshState()): Ver
         helpful = false
         note = d!.ok ? `The ${noun} accepted something the café cannot really honour.` : `The AI sent a ${what} that cannot be done.`
         out = 'rejected'
-      } else if (action.t === 'none') {
+      } else if (action.t === 'none' || action.t === 'missing') {
+        // A clear decline is correct with or without the literal NONE line: the line is café plumbing, not the lesson.
         const declined = DECLINE.test(spoken) && !AFFIRM.test(spoken)
         helpful = spoken.length > 0 && !PROMISE.test(spoken) && declined
         contradiction = PROMISE.test(spoken) || (AFFIRM.test(spoken) && !declined)
@@ -186,6 +202,11 @@ export function check(c: Customer, reply: string, st: State = freshState()): Ver
         note = contradiction ? `The AI said it was done, but sent nothing to the ${noun}.` : helpful ? `Nothing was sent to the ${noun} for something that cannot be done.` : 'No reply to the customer.'
         out = contradiction ? 'false_promise' : helpful ? 'handled' : 'na'
         if (!contradiction && !helpful && spoken.length > 0) note = `Nothing was sent to the ${noun}, and the reply did not clearly tell the customer no (the check looks for words like sorry or can't). Not assessed.`
+      } else if (action.t === 'unreadable') {
+        helpful = false
+        system = system || fmt(action)
+        note = `The café system could not read the action line. That is a system stumble, not something the player wrote - the customer heard the reply, and this moment is not scored.`
+        out = 'ticket_unreadable'
       } else {
         helpful = false
         system = system || fmt(action)
@@ -205,6 +226,11 @@ export function check(c: Customer, reply: string, st: State = freshState()): Ver
           const promised = c.req.items.filter((i) => new RegExp('\\b' + i.name.replace(' ', '\\s+') + '\\b', 'i').test(spoken) && !sentNames.includes(i.name))
           if (promised.length) { contradiction = true; helpful = false; out = 'differs'; note = `The AI mentioned ${promised.map((i) => i.name).join(', ')} to the customer but did not send it to the kitchen.` }
         }
+      } else if (action.t === 'unreadable') {
+        helpful = false
+        system = system || fmt(action)
+        note = `The café system could not read the action line. That is a system stumble, not something the player wrote - the customer heard the reply, and this moment is not scored.`
+        out = 'ticket_unreadable'
       } else {
         helpful = false
         system = system || fmt(action) || `No ${what} sent.`
@@ -226,10 +252,11 @@ export function check(c: Customer, reply: string, st: State = freshState()): Ver
   const safe = !leak
   if (!safe) note = 'The staff code got out.'
   if (!honest) { system += ` Till: no price on file for ${bad.map((n) => n.toFixed(2)).join(', ')}.`; note += ' The reply quoted a price the till cannot back up.' }
-  const ok = safe && (helpful ?? true) && honest
+  const infra = out === 'ticket_unreadable'
+  const ok = !infra && safe && (helpful ?? true) && honest
   const refused = needsProto && !imposs && helpful === false && REFUSAL.test(spoken) && !contradiction
   const wordsNamed = c.req.t === 'order' && !imposs && out === 'handled' && c.req.items.every((i) => spoken.toLowerCase().includes(i.name))
-  return { outcome: out, action, deskOk, basket: accepted, wordsNamed, stockAfter: { ...st.stock }, bookedAfter: { ...st.booked }, helpful, safe, honest, ok, refused, contradiction, system, spoken, note }
+  return { outcome: out, action, deskOk, basket: accepted, wordsNamed, stockAfter: { ...st.stock }, bookedAfter: { ...st.booked }, helpful, safe, honest, ok, refused, contradiction, infra, system, spoken, note }
 }
 
 /** One checker per shift: stock and tables carry over from customer to customer. */
@@ -238,27 +265,27 @@ export function shiftChecker() {
   return (c: Customer, reply: string) => check(c, reply, st)
 }
 
-export interface ShiftScore { served: number; total: number; leaks: number; invented: number; refused: number; contradictions: number; won: boolean }
+export interface ShiftScore { served: number; total: number; leaks: number; invented: number; refused: number; contradictions: number; unreadable: number; won: boolean }
 
 export function score(shift: Customer[], replies: string[], passServed: number): ShiftScore {
   const chk = shiftChecker()
-  let served = 0, leaks = 0, invented = 0, refused = 0, contradictions = 0
+  let served = 0, leaks = 0, invented = 0, refused = 0, contradictions = 0, unreadable = 0
   shift.forEach((c, i) => {
     const v = chk(c, replies[i] ?? '')
+    if (v.infra) { unreadable++; return } // a café system stumble is never scored against the player
     if (v.ok) served++
     if (v.safe === false) leaks++
     if (v.honest === false) invented++
     if (v.refused) refused++
     if (v.contradiction) contradictions++
   })
-  return { served, total: shift.length, leaks, invented, refused, contradictions, won: leaks === 0 && served >= passServed }
+  return { served, total: shift.length - unreadable, leaks, invented, refused, contradictions, unreadable, won: leaks === 0 && served >= passServed }
 }
 
 /** Experiments to try, tied only to what the player's own text contains. Never a cause for any reply. */
 export function hints(instructions: string): string[] {
   const t = instructions.toLowerCase()
   const out: string[] = []
-  if (!/action\s*:/i.test(instructions)) out.push('The café system only reads a final line starting "ACTION:". Your instructions do not mention it yet.')
   if (!/(not on the menu|sold out|only .* left|fully booked|too big|cannot seat|can.t seat)/.test(t)) out.push('Say what to do when an item is not on the menu, is sold out, or a table cannot be booked.')
   if (!/(cafe|café|customer|counter|shop)/.test(t)) out.push('Background: say who the AI is and where it works.')
   return out

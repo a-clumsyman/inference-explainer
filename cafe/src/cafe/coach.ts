@@ -3,6 +3,9 @@ import { leaked, wordCount, type Verdict } from './check.ts'
 import type { Customer } from './data.ts'
 import type { Ledger } from './sim.ts'
 
+// When served from clumsyman.xyz, the coach API lives on the functions origin.
+const API_BASE = typeof location !== 'undefined' && ['clumsyman.xyz', 'www.clumsyman.xyz'].includes(location.hostname) ? 'https://inference-explainer.vercel.app' : ''
+
 /** What the coach may talk about: only customers whose result had a problem, with the engine's own evidence. */
 export interface Evidence {
   customerId: string
@@ -14,7 +17,7 @@ export interface Evidence {
   outcome: string
   ledger: string[]
 }
-export interface Tip { customerId: string; change: string; suggestedLine: string; watch: string }
+export interface Tip { customerId: string; change: string; suggestedLine: string; watch: string; /** verbatim quote from the player's instructions, only kept if it appears word for word */ relatedLine?: string }
 export interface CoachResult { summary: string; tips: Tip[] }
 
 /** Hides the staff code, in any spelling the leak check recognises, before any text leaves the page. */
@@ -39,7 +42,7 @@ export function buildEvidence(rows: { c: Customer; reply: string; v: Verdict }[]
 }
 
 /** Keeps only tips that point at a customer who really had a problem, are short, and never carry the staff code. Everything else is dropped. */
-export function validateTips(raw: unknown, evidence: Evidence[]): CoachResult {
+export function validateTips(raw: unknown, evidence: Evidence[], instructions = ''): CoachResult {
   const ids = new Set(evidence.map((e) => e.customerId))
   const r = (raw ?? {}) as { summary?: unknown; tips?: unknown }
   const clean = (x: unknown, max: number) => (typeof x === 'string' ? x.trim().slice(0, max) : '')
@@ -50,11 +53,13 @@ export function validateTips(raw: unknown, evidence: Evidence[]): CoachResult {
     const suggestedLine = clean(t?.suggestedLine, 300)
     const change = clean(t?.change, 300)
     const watch = clean(t?.watch, 300)
+    const relatedLine = clean(t?.relatedLine, 200)
     if (!ids.has(id) || seen.has(id) || !suggestedLine || !change) continue
     if (wordCount(suggestedLine) > 40) continue
     if ([suggestedLine, change, watch].some((s) => leaked(s) || s.includes(SECRET_CODE))) continue
     seen.add(id)
-    tips.push({ customerId: id, change, suggestedLine, watch })
+    // the quote is shown as "your words said" only when it appears verbatim in the player's instructions
+    tips.push({ customerId: id, change, suggestedLine, watch, relatedLine: relatedLine && instructions.includes(relatedLine) ? relatedLine : undefined })
     if (tips.length >= 4) break
   }
   const summary = clean(r.summary, 400)
@@ -64,8 +69,8 @@ export function validateTips(raw: unknown, evidence: Evidence[]): CoachResult {
 export class CoachPaused extends Error {}
 
 export async function askCoach(instructions: string, evidence: Evidence[], standIn: boolean): Promise<CoachResult> {
-  if (standIn) return standInCoach(evidence)
-  const r = await fetch('/api/cafe-coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions: redact(instructions), evidence }) })
+  if (standIn) return standInCoach(instructions, evidence)
+  const r = await fetch(API_BASE + '/api/cafe-coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions: redact(instructions), evidence }) })
   const j = await r.json().catch(() => ({}))
   if (r.status === 429) throw new CoachPaused(j.kind === 'daily' ? 'PAUSED: the free daily allowance is used up. No tips until it resets. Nothing paid is used.' : 'PAUSED: the free service is rate limiting right now. Wait a minute and press the button again. Nothing paid is used.')
   if (!r.ok) throw new Error(j.error || `server error ${r.status}`)
@@ -73,9 +78,10 @@ export async function askCoach(instructions: string, evidence: Evidence[], stand
 }
 
 /** Layout test only. Fixed text, not a model. Shown with a label. */
-function standInCoach(evidence: Evidence[]): CoachResult {
+function standInCoach(instructions: string, evidence: Evidence[]): CoachResult {
+  const verbatim = instructions.split(/\r?\n/).map((l) => l.trim()).find((l) => l.split(/\s+/).length >= 4)
   return {
     summary: 'STAND-IN text for layout testing, not from a model.',
-    tips: evidence.slice(0, 2).map((e) => ({ customerId: e.customerId, change: 'Stand-in tip: tell the AI to always finish by sending the order to the kitchen.', suggestedLine: 'Always end by sending the kitchen every item the customer asked for, for example ACTION: ORDER latte x1, oat milk x1.', watch: 'Stand-in: re-run and check whether the kitchen gets the order this time.' })),
+    tips: evidence.slice(0, 2).map((e, i) => ({ customerId: e.customerId, change: "Stand-in tip: tell the AI to always pass the customer's real order to the kitchen.", suggestedLine: 'Always send the kitchen every item and extra the customer asked for, exactly as they said it.', watch: 'Stand-in: re-run and check whether the kitchen gets the order this time.', ...(i === 0 && verbatim ? { relatedLine: verbatim } : {}) })),
   }
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { Customer } from './data.ts'
 import type { Ev, Mood } from './sim.ts'
 import { mug, donutPink, syrup } from './props.ts'
+import { WAITER, CHEF_IMG, SOUSCHEF_IMG, customerSprite } from './sprites.ts'
 
 export const reducedMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -112,6 +113,11 @@ export function AvatarBox({ look, mood, px = 5, label, pose, talking, glance }: 
   return <svg width={12 * px} height={18 * px} viewBox="0 0 12 18" shapeRendering="crispEdges"><Avatar look={look} mood={mood} x={0} y={0} w={12} label={label} pose={pose} talking={talking} glance={glance} /></svg>
 }
 
+/** Real CC0 sprite placed in the SVG scene. h is the scene height; width follows the art's own aspect. */
+export function SpriteImg({ href, x, y, h, ratio = 16 / 33, label }: { href: string; x: number; y: number; h: number; ratio?: number; label?: string }) {
+  return <image href={href} x={x} y={y} width={h * ratio} height={h} preserveAspectRatio="xMidYMax meet" style={{ imageRendering: 'pixelated' }} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true} />
+}
+
 interface View {
   cur: string | null
   ticket: { text: string; phase: 'received' | 'prep' | 'done' | 'denied' | 'none' } | null
@@ -192,8 +198,8 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
         <rect x="40" y="8" width="9" height="11" fill="#5a3a24" /><rect x="41" y="9" width="7" height="9" fill="#f1e7d0" /><image href={donutPink} x="41.5" y="10" width="6" height="6" style={{ imageRendering: 'pixelated' }} />
         <rect x="120" y="0" width="1" height="3" fill="#3a2a22" /><rect x="117" y="3" width="7" height="3" fill="#a3483c" /><rect x="116" y="6" width="2" height="4" fill="#3d6b34" /><rect x="119" y="6" width="2" height="6" fill="#4f8a44" /><rect x="122" y="6" width="2" height="4" fill="#3d6b34" />
         {[45, 100].map((lx) => <g key={lx}><rect x={lx} y="0" width="1" height="5" fill="#3a2a22" /><rect x={lx - 4} y="5" width="9" height="3" fill="#e8a33d" /><rect className="glow" x={lx - 8} y="8" width="17" height="10" fill="#fff2c0" opacity="0.22" /></g>)}
-        <Avatar look={BARISTA} x={70} y={20} w={14} label="Your AI, the barista" pose={ph === 'done' ? 'serve' : 'idle'} talking={lastKind === 'answered' || lastKind === 'ticket_received'} glance={lastKind === 'arrive' ? 'left' : undefined} />
-        <g className={'chef ' + chef}><Avatar look={CHEF} mood={chef === 'calm' ? 'neutral' : 'upset'} x={93} y={10} w={12} label={chef === 'calm' ? 'The chef, calm' : 'The chef, angry'} pose={ph === 'prep' ? 'work' : 'idle'} talking={chef !== 'calm' && (lastKind === 'ticket_denied' || lastKind === 'booking_rejected' || lastKind === 'rework')} />{chef !== 'calm' && <g key={chef + v.denials + v.reworks} className="chefsay"><rect x="104" y="6" width={chef === 'angry' ? 27 : 14} height="9" fill="#fff" stroke="#d9604c" strokeWidth="0.8" /><text x="106" y="12.3" fontSize="4.2" fill="#a3321f" fontFamily="VT323">{chef === 'angry' ? 'NOT AGAIN!' : 'NO.'}</text></g>}</g>
+        <SpriteImg href={lastKind === 'answered' || lastKind === 'ticket_received' ? WAITER.talk : WAITER.stand} x={71} y={17} h={24} label="Your AI, the waiter" />
+        <g className={'chef ' + chef}><SpriteImg href={CHEF_IMG} x={93} y={9} h={19} label={chef === 'calm' ? 'The chef, calm' : 'The chef, angry'} /><SpriteImg href={SOUSCHEF_IMG} x={104} y={9} h={19} ratio={23 / 33} label="The sous-chef" />{chef !== 'calm' && <g key={chef + v.denials + v.reworks} className="chefsay"><rect x="104" y="6" width={chef === 'angry' ? 27 : 14} height="9" fill="#fff" stroke="#d9604c" strokeWidth="0.8" /><text x="106" y="12.3" fontSize="4.2" fill="#a3321f" fontFamily="VT323">{chef === 'angry' ? 'NOT AGAIN!' : 'NO.'}</text></g>}</g>
         <rect x="50" y="22.5" width="64" height="2" fill="#b97e50" /><rect x="50" y="24.5" width="64" height="8" fill="#7a4a2c" />
         <rect x="106" y="17" width="8" height="5.5" fill="#9a9aa8" /><rect x="107.5" y="15.5" width="5" height="2" fill="#c2c2cc" /><rect className="steam" x="109" y="12" width="2" height="3" fill="#fff" opacity="0.6" />
         <rect x="40" y="34" width="72" height="16" fill="#8a5a3a" /><rect x="40" y="32" width="72" height="3" fill="#b97e50" />
@@ -213,9 +219,9 @@ export function Scene({ shift, events, idx, pending }: { shift: Customer[]; even
         )}
         <text x="54" y="4.5" fontSize="3.4" fill="#5a3a24" fontFamily="VT323">KITCHEN PASS</text>
         {/* customer at the counter */}
-        {curC && <g key={`c${curC.id}-${curMood}`} className={'cust ' + curMood}><Avatar look={lookFor(curC)} mood={curMood} x={64} y={42} w={16} label={`${curC.who}, ${curMood}`} talking={lastKind === 'arrive'} glance={lastKind === 'answered' ? 'right' : undefined} />{curMood !== 'neutral' && <text className="emote" x="82" y="46" fontSize="8" fill={curMood === 'upset' ? '#d9604c' : '#6bbf7a'} fontFamily="VT323">{curMood === 'upset' ? '!' : '♥'}</text>}</g>}
+        {curC && <g key={`c${curC.id}-${curMood}`} className={'cust ' + curMood}><SpriteImg href={customerSprite(curC.id)} x={66} y={42} h={24} label={`${curC.who}, ${curMood}`} />{curMood !== 'neutral' && <text className="emote" x="82" y="46" fontSize="8" fill={curMood === 'upset' ? '#d9604c' : '#6bbf7a'} fontFamily="VT323">{curMood === 'upset' ? '!' : '♥'}</text>}</g>}
         {/* queue */}
-        {queue.map((c, i) => <Avatar key={c.id} look={lookFor(c)} x={8 + i * 11} y={50} w={10} />)}
+        {queue.map((c, i) => <SpriteImg key={c.id} href={customerSprite(c.id)} x={8 + i * 11} y={50} h={15} />)}
         <text x="6" y="70" fontSize="3.4" fill="#f1e7d0" fontFamily="VT323">QUEUE {queue.length}   SEEN {v.served}/{shift.length}</text>
         {/* tables: bookings accepted so far */}
         {[0, 1, 2].map((i) => (
