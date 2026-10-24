@@ -57,4 +57,7 @@ try{
 }finally{globalThis.fetch=original;process.env=env}
 t('old opening proof not reused for new rule',decodeCampaign('{"version":1,"cleared":[0,1],"best":{"0":4,"1":5}}').cleared.join(',')==='1'&&decodeCampaign('{"version":1,"cleared":[0],"best":{"0":4}}').previousOpeningBest===4)
 t('new opening proof survives reload',decodeCampaign('{"version":1,"openingRule":"quote-yes","cleared":[0],"best":{"0":4}}').cleared.includes(0))
+const optional=POOL.find(c=>c.id==='r2')!
+t('carried quote rule also supports customer yes in later levels',check(optional,approved.replace('7.20','8.00').replace('cappuccino x1, croissant x1','cappuccino x2'),undefined,'State total, wait for yes.').ok)
+t('later levels still accept correct immediate service',check(optional,'Coming up!\nACTION: ORDER cappuccino x2').ok)
 console.log(`${count} campaign checks passed`)
