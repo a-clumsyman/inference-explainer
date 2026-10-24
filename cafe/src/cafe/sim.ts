@@ -76,7 +76,11 @@ export function simulate(shift: Customer[], replies: string[], instructions = ''
     const v: Verdict = chk(c, replies[i] ?? '', rowInstructions[i] ?? instructions)
     push({ cid: c.id, kind: 'arrive', text: `${c.who} arrives: "${c.line}"`, stock: stockBefore, booked: bookedCount })
     push({ cid: c.id, kind: 'answered', text: `AI says: ${v.spoken || '(nothing)'}`, stock: stockBefore, booked: bookedCount })
-    const a = v.action
+    if(c.clarify && replies[i]?.includes('\n--- CUSTOMER CHOICE ---\n')) {
+      const first=replies[i].split('\n--- CUSTOMER CHOICE ---\n')[0]
+      events.splice(events.length-1,0,{idx:events.length-1,cid:c.id,kind:'answered',text:'AI asks: '+first.split(/\nACTION:/)[0],stock:stockBefore,booked:bookedCount},{idx:events.length,cid:c.id,kind:'answered',text:'Customer answers: '+c.clarify,stock:stockBefore,booked:bookedCount})
+    }
+    const a = c.clarify && !replies[i]?.includes('\n--- CUSTOMER CHOICE ---\n') ? {t:'none' as const} : v.action
     if (a.t === 'order' && v.deskOk) {
       const ticks = v.basket.reduce((s, it) => s + (PREP_TICKS[it.name] ?? 1) * 1, 0)
       push({ cid: c.id, kind: 'ticket_received', text: `Kitchen accepts: ${basketText(v.basket)}`, stock: v.stockAfter, booked: bookedCount, stamp: 'ACCEPTED', short: basketText(v.basket) })
@@ -152,5 +156,6 @@ export function simulate(shift: Customer[], replies: string[], instructions = ''
     push({ cid: c.id, kind: 'mood', text: `${c.who} leaves ${mood} (${cust})`, mood, stock: v.stockAfter, booked: bookedCount, run })
   })
   const customerScore = ledgers.some(l => l.assessed) ? Math.round(ledgers.filter(l => l.assessed).reduce((s, l) => s + l.customer, 0) / ledgers.filter(l => l.assessed).length) : CUSTOMER_START
+  events.forEach((e,i)=>{e.idx=i})
   return { events, ledgers, customerScore, staffScore: clamp(staff), kitchen, till, desk }
-                                                                                }
+}
