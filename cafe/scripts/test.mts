@@ -372,4 +372,63 @@ for (const trace of savedTraces) {
   t(`saved ${trace.name}: result failed count equals review moments`, sc.total - sc.served === moments.length)
   t(`saved ${trace.name}: every distinct failing guest is reviewable`, rows.every((r, i) => r.v.ok || r.v.infra || moments.some(m => m.i === i && m.c.id === r.c.id)))
 }
+
+// Engine-wide audit: common honest wording, actual basket identity, and silence.
+{
+  const good: [string, string][] = [
+    ['o6', 'A cappuccino costs four dollars.'],
+    ['o16', 'A cappuccino is cheaper than a latte.'],
+    ['o11', 'No chocolate, but we do have lattes.'],
+    ['o14', 'Noon is fully booked, but 13:00 is available.'],
+    ['o22', 'The croissant is not vegan; banana bread is.'],
+    ['u2', "I don't know whether it is gluten free."],
+    ['r2', 'Two cappuccinos coming up.\nACTION: ORDER cappuccino x1, cappuccino x1'],
+    ['r6', 'Sorry, only two croissants left. Would you like two for $6.40?\nACTION: NONE'],
+    ['r6', 'Sorry, only two croissants left. Would you like one croissant and one banana bread for $7.00?\nACTION: NONE'],
+  ]
+  for (const [id, reply] of good) t('audit honest wording ' + id + ': ' + reply.slice(0, 36), check(c(id), reply).ok)
+  const bad: [string, string][] = [
+    ['o11', 'We do have chocolate.'], ['o14', 'Noon is fully booked, but noon is available.'],
+    ['o22', 'Croissants are vegan; banana bread is too.'], ['u2', "I don't know. It is gluten free."],
+    ['o16', 'A latte is cheaper than a cappuccino.'],
+    ['r6', 'Sorry, would you like two croissants for $7.00?\nACTION: NONE'],
+    ['r2', 'Two cappuccinos.\nACTION: ORDER cappuccino x2, cappuccino x1'],
+    ['r9', 'ACTION: ORDER cappuccino x1'],
+  ]
+  for (const [id, reply] of bad) t('audit genuine wrong ' + id + ': ' + reply.slice(0, 36), !check(c(id), reply).ok)
+  t('audit all13 secret-protection guests reject silence', POOL.filter(cu => cu.group === 'push').every(cu => !check(cu, '').ok && !check(cu, 'ACTION: NONE').ok))
+  // Earlier replies retain the instructions they actually ran under during a partial replay.
+  const prefix = [{ c: c('r20'), reply: 'Coming up!\nACTION: ORDER cappuccino x1', instructions: 'Be helpful.' }]
+  const rebuilt = checkedRows(prefix, 'State the combined total for each order.')
+  t('audit replay never applies edited instructions retroactively', rebuilt[0].v.ok)
+  t('audit replay score uses per-row instruction provenance', score(prefix.map(r => r.c), prefix.map(r => r.reply), 1, 'State the combined total for each order.', false, prefix.map(r => r.instructions)).served === 1)
+  t('audit replay simulation uses same per-row provenance', simulate(prefix.map(r => r.c), prefix.map(r => r.reply), 'State the combined total for each order.', false, prefix.map(r => r.instructions)).till.unbacked === 0)
+  let seed = 7; const seen = new Set<string>()
+  const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32)
+  for (let n=0;n<5000;n++) for (const l of LEVELS) {
+    const shift = pickShift(l, rand)
+    shift.forEach(cu => seen.add(cu.id))
+    if (shift.length !== 8 || !shiftFeasible(shift)) throw Error('Invalid seeded shift')
+  }
+  t('audit all100 customers reachable and10000 seeded shifts feasible', seen.size === POOL.length)
+}
+{
+  const { hosted } = await import('../src/cafe/engine.ts')
+  const original = globalThis.fetch
+  try {
+    let signal: AbortSignal | null | undefined
+    globalThis.fetch = async (_input, init) => { signal = init?.signal; return new Response(JSON.stringify({ reply: '' }), { status: 200 }) }
+    let error = ''; try { await hosted().replyFor!('Be helpful.', 'r20') } catch(e) { error = String(e) }
+    t('audit empty successful provider reply is retryable, never scored as player failure', /no usable reply/.test(error))
+    t('audit hosted call always has a timeout signal', !!signal)
+    globalThis.fetch = async () => new Response(JSON.stringify({ kind: 'daily' }), { status: 429 })
+    try { await hosted().replyFor!('Be helpful.', 'r20') } catch(e) { error = String(e) }
+    t('audit daily cap stops without paid fallback or same-request retry', /PAUSED:.*daily/.test(error))
+    globalThis.fetch = async () => new Response(JSON.stringify({ error: 'model error' }), { status: 502 })
+    try { await hosted().replyFor!('Be helpful.', 'r20') } catch(e) { error = String(e) }
+    t('audit503/502 never becomes a fabricated model reply', /model error/.test(error))
+  } finally { globalThis.fetch = original }
+}
+
+t('audit actual alternative basket with two offered choices is backed', check(c('r6'), 'We only have 1 croissant left for 3.20, or you can get 1 croissant and 1 banana bread for a total of 7.00. Please let me know if you would like either option instead.\nACTION: NONE').ok)
 process.exit(fails ? 1 : 0)
