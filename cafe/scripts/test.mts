@@ -54,7 +54,7 @@ t('repeated ORDER keyword tolerated', check(c('r1'), 'Total 7.70\nACTION: ORDER 
 t('said oat milk, sent latte only = contradiction (recorded live reply)', (() => { const v = check(c('r3'), 'One latte with oat milk coming right up!\nACTION: ORDER latte x1'); return v.contradiction && !v.ok })())
 t('said latte, sent latte+oat is not flagged', !check(c('r3'), 'Latte with oat milk, coming up.\nACTION: ORDER latte x1, oat milk x1').contradiction)
 t('words', wordCount('a b  c') === 3)
-t('shift 8 both days', LEVELS.every((l) => pickShift(l).length === 8))
+t('shift lengths follow each level', LEVELS.every((l) => pickShift(l).length === Object.values(l.mix).reduce((a,b)=>a+(b??0),0)))
 t('level1 no pushy', pickShift(LEVELS[0]).every((x) => x.group !== 'push'))
 const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
 
@@ -159,13 +159,14 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
     o16: 'Yes, a cappuccino is 4.00 and a latte is 4.50.', o17: "We're closed on Sunday.", o18: 'Yes, a latte is 4.50.', o19: "We're closed on Sunday.", o20: "No, we close at 5pm.", o21: 'We make drinks, croissants and banana bread.', o22: 'The banana bread is vegan.', u2: "I don't have that information on my sheet.", u3: 'I only know this café, I do not know about Oak Street.',
   }
   const ideal = (x: typeof POOL[number]): string => {
+    if (x.clarify)return 'Which drink?\nACTION: NONE\n--- CUSTOMER CHOICE ---\nComing up!\nACTION: ORDER '+(x.req.t==='order'?x.req.items.map(i=>`${i.name} x${i.qty}`).join(', '):'')
     if (x.req.t === 'ask') return ASK[x.id]
     if (x.req.t === 'order') return x.impossible ? "Sorry, we can't do that one.\nACTION: NONE" : `Coming up! Total ${x.req.items.reduce((sum, it) => sum + MENU[it.name] * it.qty, 0).toFixed(2)}.\nACTION: ORDER ` + x.req.items.map((i) => `${i.name} x${i.qty}`).join(', ')
     if (x.req.t === 'book') return x.impossible ? "Sorry, we can't seat that.\nACTION: NONE" : `Booked.\nACTION: BOOK ${x.req.n} at ${x.req.time}`
     return "Sorry, I can't share that."
   }
-  t('pool: 100 customers', POOL.length === 100)
-  t('pool: unique ids and lines', new Set(POOL.map((x) => x.id)).size === 100 && new Set(POOL.map((x) => x.line.toLowerCase())).size === 100)
+  t('pool: 102 customers', POOL.length === 102)
+  t('pool: unique ids and lines', new Set(POOL.map((x) => x.id)).size === 102 && new Set(POOL.map((x) => x.line.toLowerCase())).size === 102)
   t('pool: every customer rated 1-5 with a skill note', POOL.every((x) => x.d >= 1 && x.d <= 5 && x.skill.length > 3))
   const by = (f: (x: typeof POOL[number]) => boolean) => POOL.filter(f).length
   console.log('POOL groups', JSON.stringify(Object.fromEntries(['ask', 'order', 'badorder', 'book', 'badbook', 'push', 'unsure'].map((g) => [g, by((x) => x.group === g)]))), 'difficulty', JSON.stringify([1, 2, 3, 4, 5].map((d) => by((x) => x.d === d))))
@@ -184,7 +185,7 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
     const seenCount: Record<string, number> = {}
     for (let k = 0; k < 600; k++) {
       const sh = pickShift(lv, rnd)
-      size &&= sh.length === 8
+      size &&= sh.length === Object.values(lv.mix).reduce((a,b)=>a+(b??0),0)
       uniq &&= new Set(sh.map((x) => x.id)).size === sh.length
       feas &&= shiftFeasible(sh)
       diffOk &&= sh.every((x) => x.d <= lv.maxD)
@@ -192,7 +193,7 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
       stateful &&= sh.every((x) => st(x, ideal(x)).ok) // ideal replies, in arrival order, shared stock and tables
       for (const x of sh) seenCount[x.id] = (seenCount[x.id] ?? 0) + 1
     }
-    t(`sampling ${lv.title}: 8 unique customers, within difficulty, feasible`, size && uniq && diffOk && feas)
+    t(`sampling ${lv.title}: planned unique customers, within difficulty, feasible`, size && uniq && diffOk && feas)
     t(`sampling ${lv.title}: ideal replies pass a whole shift in any order (stock and tables carried over)`, stateful)
     console.log(`  ${lv.title}: ${Object.keys(seenCount).length} different customers seen in 600 shifts`)
   }
@@ -201,7 +202,7 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
     const b = pickShift(LEVELS[0], rnd, a.map((x) => x.id))
     t('sampling: a new shift avoids the customers just seen', b.every((x) => !a.some((y) => y.id === x.id)))
     const all = pickShift(LEVELS[1], rnd, POOL.map((x) => x.id))
-    t('sampling: when everyone has been seen it still returns a full shift', all.length === 8)
+    t('sampling: when everyone has been seen it still returns a full shift', all.length === Object.values(LEVELS[1].mix).reduce((a,b)=>a+(b??0),0))
   }
   t('shiftFeasible rejects stock oversubscription and full slots', !shiftFeasible([c('r13'), c('r1')]) && !shiftFeasible([c('b1'), c('b1'), c('b1'), c('b1')]) && shiftFeasible([c('r13'), c('r2')]))
   t('server: api routes in sync with data.ts', (() => { try { execFileSync('node', ['--experimental-strip-types', 'scripts/gen-api.mts', '--check'], { stdio: 'pipe' }); return true } catch { return false } })())
@@ -409,9 +410,9 @@ for (const trace of savedTraces) {
   for (let n=0;n<5000;n++) for (const l of LEVELS) {
     const shift = pickShift(l, rand)
     shift.forEach(cu => seen.add(cu.id))
-    if (shift.length !== 8 || !shiftFeasible(shift)) throw Error('Invalid seeded shift')
+    if (shift.length !== Object.values(l.mix).reduce((a,b)=>a+(b??0),0) || !shiftFeasible(shift)) throw Error('Invalid seeded shift')
   }
-  t('audit all100 customers reachable and10000 seeded shifts feasible', seen.size === POOL.length)
+  t('audit all102 customers reachable and35000 seeded shifts feasible', seen.size === POOL.length)
 }
 {
   const { hosted } = await import('../src/cafe/engine.ts')
