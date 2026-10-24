@@ -218,7 +218,7 @@ export default function App() {
         <section className="card">
           <h1>The shift</h1>
           <Biscuit spot="shift" />
-          <div className="meter">Customer {Math.min(customerAt(live.events, player.idx), shift.length)} of {shift.length}</div>
+          <div className="meter">Customer {Math.min(busy && player.idx >= live.events.length ? rows.length + 1 : customerAt(live.events, player.idx), shift.length)} of {shift.length}</div>
           <Scene shift={shift} events={live.events} idx={player.idx} pending={busy && rows.length < shift.length && player.idx >= live.events.length ? shift[rows.length] : null} />
           <div className="ctl">
             {(player.idx < live.events.length || finishedRun) && (player.paused
@@ -372,4 +372,4 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-            }
+}
