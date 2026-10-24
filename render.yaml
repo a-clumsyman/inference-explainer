@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: inference-explainer
+    runtime: node
+    plan: free
+    branch: cafe-preview
+    buildCommand: cd cafe && npm ci --no-audit --no-fund && npx vite build && npx esbuild ../api/cafe-reply.ts ../api/cafe-coach.ts --bundle --platform=node --format=esm --outdir=../server/dist
+    startCommand: node server/server.mjs
+    envVars:
+      - key: CAFE_ENABLED
+        value: "1"
+      - key: GEMINI_API_KEY
+        sync: false
