@@ -38,6 +38,7 @@ const approved='Total 7.20. May I prepare that?\nACTION: NONE\n--- CUSTOMER CHOI
 t('opening immediate ticket cannot pass',!check(a,'Coming up!\nACTION: ORDER cappuccino x1, croissant x1').ok)
 t('opening early preparation held without stock mutation',check(a,'Coming up!\nACTION: ORDER cappuccino x1, croissant x1').stockAfter.croissant===2)
 t('opening quote yes prepare passes',check(a,approved).ok)
+t('quote before yes fulfils total instruction without repeating bill',check(a,approved,undefined,'State the combined total before asking for yes.').ok)
 t('opening missing quote is unscored not invented failure',check(a,'May I prepare that?\nACTION: NONE').infra)
 t('opening wrong quote cannot pass',!check(a,approved.replace('7.20','4.00')).ok)
 t('opening wrong final item cannot pass',!check(a,approved.replace('croissant x1','croissant x2')).ok)
