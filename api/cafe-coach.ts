@@ -164,14 +164,14 @@ export default async function handler(req: any, res: any) {
   const ev = evidence.flatMap((raw: any) => {
     const history = Array.isArray(raw?.history) ? raw.history : [{ customerId: raw?.customerId, reply: raw?.reply }]
     if (!history.length || history.length > 8) return []
-    const chk = shiftChecker()
+    const chk = shiftChecker(instructions)
     const rows = [] as { c: (typeof POOL)[number]; reply: string; v: ReturnType<typeof chk> }[]
     for (const item of history) {
       const c = POOL.find((p) => p.id === item?.customerId)
       if (!c || typeof item?.reply !== 'string' || item.reply.length > 1600) return []
       rows.push({ c, reply: item.reply, v: chk(c, item.reply) })
     }
-    const sim = simulate(rows.map((r) => r.c), rows.map((r) => r.reply))
+    const sim = simulate(rows.map((r) => r.c), rows.map((r) => r.reply), instructions)
     return buildEvidence(rows, sim.ledgers).filter((e) => e.customerId === raw?.customerId).map(({ history: _trace, ...e }) => e)
   })
   if (!ev.length || ev.length !== evidence.length || new Set(ev.map((e) => e.customerId)).size !== ev.length) return res.status(400).json({ error: 'Could not verify moment evidence.' })
@@ -238,7 +238,7 @@ export default async function handler(req: any, res: any) {
     if (!line || /\bACTION\s*:|\bprotocol\b|\btoken\b/i.test(line) || line.split(/\s+/).length > 40 || /(?:split|join|combine|merge)\b[\s\S]{0,60}\b(?:table|group|party)|(?:two|multiple|several) tables|(?:omit|hide|suppress|avoid|never|don.t|do not)\b[\s\S]{0,30}\b(?:price|total|cost|stock|fact)/i.test(line)) return []
     if (tip.relatedLine && !instructions.includes(tip.relatedLine)) return []
     const checks = e.facts?.checks as any
-    if (checks?.honest === false && !/price|total|cost|calculat|add.*up/i.test(line)) return []
+    if ((checks?.honest === false || checks?.priceIssue === 'missing_total') && !/price|total|cost|calculat|add.*up/i.test(line)) return []
     const req = e.facts?.request as any
     const stock = e.facts?.stockBefore as any
     const shortage = req?.t === 'order' && req.items.some((it: any) => typeof stock?.[it.name] === 'number' && it.qty > stock[it.name])
@@ -247,4 +247,4 @@ export default async function handler(req: any, res: any) {
     return [{ customerId: e.customerId, capability: tip.capability, change: e.note + ' ' + e.system, suggestedLine: line, relatedLine: tip.relatedLine || '', watch: 'Compare the next reply and action with the requested outcome and current facts shown above.', facts: e.facts }]
   })
   return res.status(200).json({ summary: '', tips: cleanTips })
-}
+    }
