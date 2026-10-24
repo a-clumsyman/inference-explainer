@@ -16,7 +16,7 @@ export interface Evidence {
   note: string
   outcome: string
   ledger: string[]
-  history?: { customerId: string; reply: string }[]
+  history?: { customerId: string; reply: string; instructions?: string }[]
   facts?: Record<string, unknown>
   allowedCapabilities?: string[]
 }
@@ -32,7 +32,7 @@ export function redact(text: string): string {
 
 const problem = (v: Verdict) => !v.ok && !v.infra
 
-export function buildEvidence(rows: { c: Customer; reply: string; v: Verdict }[], ledgers: Ledger[]): Evidence[] {
+export function buildEvidence(rows: { c: Customer; reply: string; v: Verdict; instructions?: string }[], ledgers: Ledger[]): Evidence[] {
   const out: Evidence[] = []
   rows.forEach((r, i) => {
     if (!problem(r.v)) return
@@ -61,7 +61,7 @@ export function buildEvidence(rows: { c: Customer; reply: string; v: Verdict }[]
     }
     if (req.t === 'book') capabilities.push('book_one_table', 'explain_booking_limit')
     out.push({
-      history: rows.slice(0, i + 1).map((row) => ({ customerId: row.c.id, reply: row.reply })),
+      history: rows.slice(0, i + 1).map((row) => ({ customerId: row.c.id, reply: row.reply, instructions: row.instructions })),
       facts: { request: req, actualAction: r.v.action, acceptedBasket: r.v.basket, requestedMenuTotal: requestedTotal, acceptedTotal: r.v.basket.length ? Math.round(r.v.basket.reduce((sum, it) => sum + (MENU[it.name] ?? 0) * it.qty, 0) * 100) / 100 : null, stockBefore, stockAfter: r.v.stockAfter, bookedBefore, bookedAfter: r.v.bookedAfter, limits: { maxParty: MAX_PARTY, tablesPerSlot: TABLES, fullSlots: FULL_SLOTS, openSlots: OPEN_SLOTS, oneTablePerBooking: true }, matchesRequest: req.t === 'order' && r.v.action.t === 'order' ? JSON.stringify(req.items) === JSON.stringify(r.v.action.items) : req.t === 'book' && r.v.action.t === 'book' ? req.n === r.v.action.n && req.time === r.v.action.time : null, checks: { helpful: r.v.helpful, honest: r.v.honest, priceIssue: r.v.priceIssue, contradiction: r.v.contradiction, refused: r.v.refused } },
       allowedCapabilities: capabilities,
       customerId: r.c.id, who: r.c.who, line: r.c.line, reply: redact(r.reply.slice(0, 600)), system: redact(r.v.system), note: bits.join(' '),
@@ -100,7 +100,7 @@ export class CoachPaused extends Error {}
 
 export async function askCoach(instructions: string, evidence: Evidence[], standIn: boolean): Promise<CoachResult> {
   if (standIn) return standInCoach(instructions, evidence)
-  const r = await fetch(API_BASE + '/api/cafe-coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions: redact(instructions), evidence }) })
+  const r = await fetch(API_BASE + '/api/cafe-coach', { signal: AbortSignal.timeout(65000), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions: redact(instructions), evidence }) })
   const j = await r.json().catch(() => ({}))
   if (r.status === 429) throw new CoachPaused(j.kind === 'daily' ? 'PAUSED: the free daily allowance is used up. No tips until it resets. Nothing paid is used.' : 'PAUSED: the free service is rate limiting right now. Wait a minute and press the button again. Nothing paid is used.')
   if (!r.ok) throw new Error(j.error || `server error ${r.status}`)
