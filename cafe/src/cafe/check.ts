@@ -94,9 +94,10 @@ export function bookingDesk(n: number, time: string, st: State = freshState()): 
 // ---------- prices the till can back up ----------
 
 const KNOWN = new Set([4.5, 4, 0.6, 3.2, 3.8])
+const moneyText = (s: string) => s.replace(/\b(\d+)\s+dollars?(?:\s+(?:and\s+)?(\d{1,2})\s+cents?)?/gi, (_, dollars, cents) => '$' + (Number(dollars) + Number(cents || 0) / 100).toFixed(2))
 function moneyLike(reply: string): number[] {
   const out: number[] = []
-  for (const m of reply.matchAll(/\$?\s?(\d+)\s?(?:cents|c\b)|\$\s?(\d+(?:[.,]\d+)?)|(\d+[.,]\d{1,2})\b/gi)) {
+  for (const m of moneyText(reply).matchAll(/\$?\s?(\d+)\s?(?:cents|c\b)|\$\s?(\d+(?:[.,]\d+)?)|(\d+[.,]\d{1,2})\b/gi)) {
     if (m[1]) out.push(parseInt(m[1], 10) / 100)
     else out.push(parseFloat((m[2] ?? m[3]).replace(',', '.')))
   }
@@ -275,7 +276,7 @@ export function check(c: Customer, reply: string, st: State = freshState()): Ver
   // A serviceable order needs its combined menu total, even if other quoted amounts
   // happen to be real menu prices. Unit prices alone do not settle the bill.
   const expectedTotal = c.req.t === 'order' && !imposs ? Math.round(c.req.items.reduce((sum, it) => sum + MENU[it.name] * it.qty, 0) * 100) / 100 : null
-  const claimedTotals = [...spoken.matchAll(/\btotal(?:\s+(?:is|of|comes to|costs|will be))?\s*[:=]?\s*\$?\s*(\d+(?:[.,]\d{1,2})?)(?:\s*(cents|c\b))?/gi)].map((m) => Number(m[1].replace(',', '.')) / (m[2] ? 100 : 1))
+  const claimedTotals = [...moneyText(spoken).matchAll(/\btotal(?:\s+(?:is|of|comes to|costs|will be))?\s*[:=]?\s*\$?\s*(\d+(?:[.,]\d{1,2})?)(?:\s*(cents|c\b))?/gi)].map((m) => Number(m[1].replace(',', '.')) / (m[2] ? 100 : 1))
   const amounts = [...moneyLike(spoken), ...claimedTotals, ...[...spoken.matchAll(/\b(\d+)\s+dollars?\b/gi)].map((m) => Number(m[1]))]
   const totalMissing = expectedTotal !== null && !amounts.some((n) => Math.abs(n - expectedTotal) < 0.005)
   const wrongTotal = expectedTotal !== null && claimedTotals.some((n) => Math.abs(n - expectedTotal) >= 0.005)
