@@ -18,7 +18,7 @@ function Playback({attempt}:{attempt:Attempt}){
  const customer=lessonCustomer(attempt.day,attempt.stage,attempt.continued)
  const pendingGate=(attempt.day===2||attempt.day===6)&&!attempt.continued
  // A gate must prevent an actual mutation even if the model prints an action.
- const sim=useMemo(()=>simulate([customer],[pendingGate?'Waiting for a choice or approval.\nACTION: NONE':attempt.reply],attempt.instructions),[attempt])
+ const sim=useMemo(()=>simulate([customer],[pendingGate?parseReply(attempt.reply).spoken+'\nACTION: NONE':attempt.reply],attempt.instructions),[attempt])
  const player=usePlayer(sim.events,0)
  useEffect(()=>{player.setIdx(0);player.resume()},[attempt])
  return <div><Scene shift={[customer]} events={sim.events} idx={player.idx}/><div className="ctl"><button className="btn ghost" onClick={player.paused?player.resume:player.pause}>{player.paused?'Resume animation':'Pause animation'}</button><button className="btn ghost" onClick={player.skip}>Skip animation</button></div></div>
