@@ -27,14 +27,14 @@ export function CheckPage({ engine }: { engine: Engine }) {
         report.sets[k] = { passByKind: per, samples: [] as any[] }
         const samples: any[] = report.sets[k].samples
         let i = 0
-        const chk = shiftChecker()
+        const chk = shiftChecker(text)
         for (const c of POOL.filter((x) => SUBSET.includes(x.id))) {
           setLog(`${k}: customer ${++i}/${SUBSET.length}`)
-          const reply = await (engine.replyFor ? engine.replyFor(text, c.id) : engine.reply(text, c.line))
+          const reply = await (engine.replyFor ? engine.replyFor(text, c.id, false, samples.length ? { stock: samples[samples.length - 1].stockAfter, booked: samples[samples.length - 1].bookedAfter } : undefined) : engine.reply(text, c.line))
           const v = chk(c, reply)
           per[c.group] ??= { n: 0, ok: 0 }
           per[c.group].n++; if (v.ok) per[c.group].ok++
-          samples.push({ id: c.id, reply, ok: v.ok, system: v.system })
+          samples.push({ id: c.id, reply, ok: v.ok, system: v.system, stockAfter: v.stockAfter, bookedAfter: v.bookedAfter })
         }
       }
       setJson(JSON.stringify(report, null, 1)); setLog('done')
@@ -44,7 +44,7 @@ export function CheckPage({ engine }: { engine: Engine }) {
   return (
     <section className="card">
       <h1>Model check</h1>
-      <p>Runs a weak and a strong instruction set across all {SUBSET.length} customers. A good model should do clearly better with the strong set.</p>
+      <p>Runs three instruction sets across the same {SUBSET.length} customers. Replies can vary; this is a small comparison, not a guarantee.</p>
       <button className="btn" disabled={busy} onClick={go}>Run check</button>
       <p className="small">{log}</p>
       {json && <textarea readOnly rows={12} value={json} onFocus={(e) => e.target.select()} />}
