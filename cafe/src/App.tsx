@@ -13,6 +13,8 @@ import { SAVE_KEY, encodeProgress, decodeProgress } from './cafe/save.ts'
 import { Story } from './Story.tsx'
 import { click, ding, chaChing, bookChime, buzz, fanfare, sad, startMusic, muted as soundMuted, setMuted } from './cafe/sound.ts'
 
+import { Curriculum } from './Curriculum.tsx'
+
 type Screen = 'story' | 'meet' | 'loading' | 'write' | 'shift' | 'review' | 'result'
 interface Row { c: Customer; reply: string; v: Verdict; instructions?: string }
 
@@ -23,7 +25,7 @@ const USE_LOCAL = params.get('engine') === 'local'
 const storageKey = SAVE_KEY + (USE_STANDIN ? '-layout-test' : USE_LOCAL ? '-local' : '-hosted')
 const loadSaved = () => { try { return decodeProgress(localStorage.getItem(storageKey)) } catch { return null } }
 
-export default function App() {
+function MixedApp() {
   const [saved] = useState(loadSaved)
   const [saveNotice, setSaveNotice] = useState('')
   const [resetOpen, setResetOpen] = useState(false)
@@ -394,4 +396,9 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
+}
+
+export default function App(){
+ const [mixed,setMixed]=useState(params.get('mixed')==='1'||params.get('check')==='1')
+ return mixed?<><div className="wrap"><button className="btn ghost" onClick={()=>setMixed(false)}>Back to seven lessons</button></div><MixedApp/></>:<Curriculum onMixed={()=>setMixed(true)}/>
 }
