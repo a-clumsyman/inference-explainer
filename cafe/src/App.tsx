@@ -9,6 +9,7 @@ import { CheckPage } from './Check.tsx'
 import { Biscuit } from './Biscuit.tsx'
 import { Review, type Run } from './Review.tsx'
 import { gameOver, passMarkFor } from './cafe/gameover.ts'
+import { SAVE_KEY, encodeProgress, decodeProgress } from './cafe/save.ts'
 import { Story } from './Story.tsx'
 import { click, ding, chaChing, bookChime, buzz, fanfare, sad, startMusic, muted as soundMuted, setMuted } from './cafe/sound.ts'
 
@@ -19,25 +20,43 @@ const params = new URLSearchParams(location.search)
 const USE_STANDIN = params.get('standin') === '1'
 const FIXTURE = USE_STANDIN && !!params.get('shift')
 const USE_LOCAL = params.get('engine') === 'local'
+const storageKey = SAVE_KEY + (USE_STANDIN ? '-layout-test' : USE_LOCAL ? '-local' : '-hosted')
+const loadSaved = () => { try { return decodeProgress(localStorage.getItem(storageKey)) } catch { return null } }
 
 export default function App() {
+  const [saved] = useState(loadSaved)
+  const [saveNotice, setSaveNotice] = useState('')
+  const [resetOpen, setResetOpen] = useState(false)
   const engine = useMemo<Engine>(() => (USE_STANDIN ? standIn() : USE_LOCAL ? localQwen() : hosted()), [])
-  const [screen, setScreen] = useState<Screen>(USE_STANDIN ? 'meet' : 'story')
+  const [screen, setScreen] = useState<Screen>((saved?.screen as Screen) ?? (USE_STANDIN ? 'meet' : 'story'))
   const [isMuted, setIsMuted] = useState(soundMuted())
   const [pct, setPct] = useState(0)
   const [note, setNote] = useState('')
   const [err, setErr] = useState('')
-  const [instr, setInstr] = useState(STARTER)
-  const [lvl, setLvl] = useState(() => (USE_STANDIN && params.get('day') === '2' ? 1 : 0))
+  const [instr, setInstr] = useState(saved?.instr ?? STARTER)
+  const [lvl, setLvl] = useState(() => saved?.lvl ?? (USE_STANDIN && params.get('day') === '2' ? 1 : 0))
   const level = LEVELS[lvl]
-  const [shift, setShift] = useState<Customer[]>(() => { const ids = USE_STANDIN ? (params.get('shift') ?? '').split(',').filter(Boolean) : []; const fx = ids.map((id) => POOL.find((p) => p.id === id)).filter(Boolean) as Customer[]; return fx.length ? fx : pickShift(LEVELS[0]) })
-  const [rows, setRows] = useState<Row[]>([])
-  const [partial, setPartial] = useState<{ shift: Customer[]; rows: Row[]; instructions: string } | null>(null)
+  const [shift, setShift] = useState<Customer[]>(() => { if (saved) return saved.shift; const ids = USE_STANDIN ? (params.get('shift') ?? '').split(',').filter(Boolean) : []; const fx = ids.map((id) => POOL.find((p) => p.id === id)).filter(Boolean) as Customer[]; return fx.length ? fx : pickShift(LEVELS[0]) })
+  const [rows, setRows] = useState<Row[]>((saved?.rows as Row[]) ?? [])
+  const [partial, setPartial] = useState<{ shift: Customer[]; rows: Row[]; instructions: string } | null>((saved?.partial as { shift: Customer[]; rows: Row[]; instructions: string }) ?? null)
   const [busy, setBusy] = useState(false)
-  const [runs, setRuns] = useState<Run[]>([])
+  const [runs, setRuns] = useState<Run[]>((saved?.runs as Run[]) ?? [])
   const [finishedRun, setFinishedRun] = useState<Run | null>(null)
   const seenIds = useRef<string[]>([]).current
   const cancel = useRef(false)
+  useEffect(() => {
+    // Never persist the built-in facts sheet, account data or a live in-flight request.
+    const serialized = encodeProgress({ instr, lvl, screen, shift, rows, runs: runs.map(r => ({ ...r, customers: r.customers ?? r.rows.map(row => row.c) })), partial })
+    try {
+      if (serialized === null) { localStorage.removeItem(storageKey); setSaveNotice('Not saved: this text looks like it contains a secret. Remove it to save game progress.') }
+      else { localStorage.setItem(storageKey, serialized); setSaveNotice('Saved on this browser only.') }
+    } catch { setSaveNotice('This browser could not save progress. Keep this tab open.') }
+  }, [instr, lvl, screen, shift, rows, runs, partial])
+  function resetProgress() {
+    if (busy) return
+    try { localStorage.removeItem(storageKey) } catch { /* reset still works in memory */ }
+    setInstr(STARTER); setLvl(0); setShift(pickShift(LEVELS[0])); setRows([]); setRuns([]); setPartial(null); setFinishedRun(null); setErr(''); setResetOpen(false); setScreen('write')
+  }
   const live = useMemo(() => simulate(shift.slice(0, rows.length), rows.map((r) => r.reply), partial?.instructions ?? instr, false, rows.map(r => r.instructions)), [shift, rows, instr, partial])
   const player = usePlayer(live.events, 0)
   // customers whose whole moment has played out on screen; the transcript only shows these,
@@ -160,6 +179,8 @@ export default function App() {
         <span className="tag">{engine.standIn ? 'STAND-IN, NOT A MODEL' : USE_LOCAL ? 'real AI, small and local' : 'real AI, hosted'}</span>
         <button type="button" className="soundbtn" aria-label={isMuted ? 'Turn sound on' : 'Turn sound off'} onClick={() => { const m = !isMuted; setMuted(m); setIsMuted(m); if (!m) click() }}>{isMuted ? '\u{1F507}' : '\u{1F50A}'}</button>
       </header>
+      <div className="small" role="status">Game text and progress only. Don't enter passwords or personal secrets. {saveNotice} <button className="mini" disabled={busy} onClick={() => setResetOpen(true)}>Reset progress</button></div>
+      {resetOpen && <section className="card"><p>Reset saved instructions and all game progress on this browser? This cannot be undone.</p><button className="btn" onClick={resetProgress}>Reset everything</button><button className="btn ghost" onClick={() => setResetOpen(false)}>Keep my progress</button></section>}
 
       {screen === 'story' && (
         <Story startLabel="Start" onStart={() => { click(); startMusic(); setScreen('meet') }} />
@@ -231,7 +252,7 @@ export default function App() {
             {rows.slice(0, served).map((r) => {
               const short = r.v.system.split(' Till:')[0]
               const kind = r.v.action.t === 'book' ? 'booking' : r.v.action.t === 'order' ? 'order' : 'answer'
-              const stamp = r.v.priceIssue ? (r.v.priceIssue === 'missing_total' ? 'NO TOTAL GIVEN' : r.v.priceIssue === 'wrong_total' ? 'PRICE MISMATCH' : 'INCORRECT PRICE') : r.v.outcome === 'handled' ? (r.v.action.t === 'book' ? 'BOOKED' : r.v.action.t === 'order' ? 'SERVED' : 'ANSWERED') : r.v.outcome === 'ticket_unreadable' ? 'UNREADABLE TICKET' : r.v.outcome === 'na' ? 'NOT ASSESSED' : 'NEEDS A LOOK'
+              const stamp = r.v.infra ? (r.v.outcome === 'na' ? 'NEEDS A HUMAN LOOK' : 'SYSTEM STUMBLE') : r.v.priceIssue ? (r.v.priceIssue === 'missing_total' ? 'NO TOTAL GIVEN' : r.v.priceIssue === 'wrong_total' ? 'PRICE MISMATCH' : 'INCORRECT PRICE') : r.v.outcome === 'handled' ? (r.v.action.t === 'book' ? 'BOOKED' : r.v.action.t === 'order' ? 'SERVED' : 'ANSWERED') : r.v.outcome === 'ticket_unreadable' ? 'UNREADABLE TICKET' : r.v.outcome === 'na' ? 'NOT ASSESSED' : 'NEEDS A LOOK'
               return (
                 <li key={r.c.id} className={'sumcard ' + (r.v.ok ? 'ok' : r.v.infra ? 'infra' : 'no')}>
                   <details>
@@ -275,7 +296,8 @@ export default function App() {
 
 function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame }: { runs: Run[]; level: Level; hasNext: boolean; engine: Engine; onNext: () => void; onEdit: () => void; onReview: () => void; onSame: () => void }) {
   const run = runs[runs.length - 1]
-  const passMark = passMarkFor(run.planned)
+  const assessed = run.rows.filter(r => !r.v.infra).length
+  const passMark = passMarkFor(assessed)
   const prev = runs.length > 1 ? runs[runs.length - 2] : null
   const sc = score(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), passMark, run.instructions, false, run.rows.map(r => r.instructions))
   const psc = prev ? score(prev.rows.map((r) => r.c), prev.rows.map((r) => r.reply), passMark, prev.instructions, false, prev.rows.map(r => r.instructions)) : null
@@ -299,8 +321,8 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
   const badCount = reviewMoments(checkedRows(run.rows, run.instructions)).length
   return (
     <section className="card">
-      <h1 className={sc.won ? 'win' : 'lose'}>{go.over ? 'Shift closed early' : sc.won ? 'Shift survived' : 'Below the pass mark'} <small>{level.title}</small></h1>
-      <p>{sc.won ? `${sc.served} of ${sc.total} served right.` : `${sc.served} of ${sc.total} served right - ${badCount} moment${badCount === 1 ? '' : 's'} to look at.`}{sc.unreadable > 0 ? ` (${sc.unreadable} unreadable ticket${sc.unreadable === 1 ? '' : 's'} - the cafe system stumbled, not scored.)` : ''}</p>
+      <h1 className={sc.won ? 'win' : 'lose'}>{sc.total === 0 ? 'No guests scored yet' : go.over ? 'Shift closed early' : sc.won ? 'Shift survived' : 'Below the pass mark'} <small>{level.title}</small></h1>
+      <p>{sc.won ? `${sc.served} of ${sc.total} served right.` : `${sc.served} of ${sc.total} served right - ${badCount} moment${badCount === 1 ? '' : 's'} to look at.`}{sc.unreadable > 0 ? ` (${sc.unreadable} system or unsure-wording moment${sc.unreadable === 1 ? '' : 's'}, not scored.)` : ''}</p>
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
       {go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} The shift closed at customer {go.at} of {run.planned}. {run.planned - run.rows.length} customer(s) were never sent to the AI, so there are no calls and no score for them.</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
       {!go.over && go.warn && <p className="warnline">Warning: {go.reason} From Day 2 this closes the shift.</p>}
@@ -331,7 +353,7 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
           <Meter label="Said one thing, sent another" val={String(sc.contradictions)} good={sc.contradictions === 0} />
         </div>
         {psc && <p className="small">Last run: {psc.served}/{psc.total} served, {psc.leaks} leaks, {psc.invented} price/total issues.</p>}
-        <p className="small">To survive: no leaks and at least {passMark} of {run.planned} served right.</p>
+        <p className="small">To survive: no leaks and at least {passMark} of {sc.total} assessed guests served right.</p>
       </details>
       <details className="fold"><summary>Every customer, in detail</summary>
         <ul className="log">
