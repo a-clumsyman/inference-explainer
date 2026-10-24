@@ -104,15 +104,16 @@ export function hosted(): Engine {
     async replyFor(instructions, customerId, escalate, state) {
       // The free tier has a per-minute limit. On a rate-limit answer, wait and retry a few times.
       for (let attempt = 0; ; attempt++) {
-        const r = await fetch(API_BASE + '/api/cafe-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions, customerId, escalate: escalate === true, state }) })
+        const r = await fetch(API_BASE + '/api/cafe-reply', { signal: AbortSignal.timeout(65000), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions, customerId, escalate: escalate === true, state }) })
         const j = await r.json().catch(() => ({}))
         const spent = j.kind === 'daily'
         if (r.status === 429 && !spent && attempt < 2) { await new Promise((res) => setTimeout(res, 7000)); continue }
         if (r.status === 429) throw new Error(j.kind === 'daily' ? 'PAUSED: the free daily allowance for this game is used up, so the game is paused until it resets. Nothing paid is used.' : 'PAUSED: the free service is rate limiting (too many requests in a short time). Wait about a minute and play again. Nothing paid is used.')
         if (!r.ok) throw new Error(j.error || `server error ${r.status}`)
+        if (typeof j.reply !== 'string' || !j.reply.trim()) throw new Error('The AI returned no usable reply. The shift is saved; resume to retry this customer.')
         return j.reply as string
       }
     },
   }
   return e
-}
+  }
