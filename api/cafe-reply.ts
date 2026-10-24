@@ -271,7 +271,7 @@ function cors(req: any, res: any): boolean {
 export default async function handler(req: any, res: any) {
   if (cors(req, res)) return
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
-  const { instructions, customerId, model, escalate } = req.body ?? {}
+  const { instructions, customerId, model, escalate, state } = req.body ?? {}
   // Optional model pick, only from these Free-tier models (used for the same-scenario comparison). Anything else falls back to the default.
   const useModel = ALLOWED_MODELS.includes(model) ? model : MODEL
   const c = POOL.find((p) => p.id === customerId)
@@ -284,7 +284,12 @@ export default async function handler(req: any, res: any) {
   const key = process.env.GEMINI_API_KEY
   if (!key) return res.status(503).json({ error: 'hosted model not configured' })
   used++
-  const system = `${instructions.trim()}\n\nFacts sheet:\n${FACTS.map((f) => '- ' + f).join('\n')}\n\n${SYSTEM_SUFFIX}\n\n${CONTRACT}`
+  // Accept only the game's finite numeric state, never arbitrary new instructions.
+  const validCount = (x: unknown, max: number) => typeof x === 'number' && Number.isInteger(x) && x >= 0 && x <= max
+  const stock = Object.fromEntries(Object.entries(STOCK).map(([name, initial]) => [name, validCount(state?.stock?.[name], initial) ? state.stock[name] : initial]))
+  const booked = Object.fromEntries(OPEN_SLOTS.map((slot) => [slot, validCount(state?.booked?.[slot], TABLES) ? state.booked[slot] : 0]))
+  const current = `Current cafe state, replacing the opening stock/table counts above: ${JSON.stringify({ stock, tablesAlreadyBooked: booked })}. These counts are current when this customer asks. Do not use the opening counts instead.`
+  const system = `${instructions.trim()}\n\nFacts sheet:\n${FACTS.map((f) => '- ' + f).join('\n')}\n\n${current}\n\n${SYSTEM_SUFFIX}\n\n${CONTRACT}`
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${useModel}:generateContent`, {
     method: 'POST',
     headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
@@ -304,4 +309,4 @@ export default async function handler(req: any, res: any) {
   const j: any = await r.json()
   const text = (j?.candidates?.[0]?.content?.parts ?? []).map((x: any) => x.text ?? '').join('')
   res.status(200).json({ reply: text.trim(), model: useModel })
-}
+                                                                                                      }
