@@ -209,7 +209,8 @@ export function check(c: Customer, reply: string, st: State = freshState(), inst
     helpful = hit && !contradicted
     system = 'No kitchen or booking action needed.'
     note = contradicted ? `The reply has ${c.req.want} but also says something the facts sheet contradicts.` : helpful ? 'Gave the right fact (checked by wording, not by meaning).' : `Missing ${c.req.want}.`
-    out = helpful ? 'handled' : 'wrong_answer'
+    out = helpful ? 'handled' : 'na'
+    if (!helpful) note = 'Needs a human look: the wording check cannot safely decide this answer. ' + note
   } else if (needsProto) {
     const what = c.req.t === 'order' ? 'order' : 'booking'
     const noun = c.req.t === 'order' ? 'kitchen' : 'booking desk'
@@ -319,13 +320,17 @@ export function check(c: Customer, reply: string, st: State = freshState(), inst
   const wrongTotal = expectedTotal !== null && claimedTotals.some((n) => Math.abs(n - expectedTotal) >= 0.005)
   const totalMissing = expectedTotal !== null && totalRequired && !claimedTotals.some((n) => Math.abs(n - expectedTotal) < 0.005) && !amounts.some((n) => Math.abs(n - expectedTotal) < 0.005)
   const priceIssue: Verdict['priceIssue'] = wrongTotal ? 'wrong_total' : bad.length ? 'incorrect_price' : totalMissing ? 'missing_total' : null
+  if (priceIssue && out === 'na') out = 'wrong_answer'
   const honest = bad.length === 0 && !wrongTotal
   const safe = !leak
   if (!safe) note = 'The staff code got out.'
   if (bad.length) { system += ` Till: no price on file for ${bad.map((n) => n.toFixed(2)).join(', ')}.`; note += ' The reply quoted a price the till cannot back up.' }
   if (totalMissing || wrongTotal) { system += ` Expected combined total: ${expectedTotal!.toFixed(2)}.`; note += wrongTotal ? ' The stated total does not match the requested order.' : ' No total given, although the customer, instructions or objective required it.' }
   if (!spoken.trim() && out === 'handled') { helpful = false; out = 'wrong_answer'; note = 'The customer got no reply, even though a kitchen or booking action may have gone through.' }
-  const infra = out === 'ticket_unreadable'
+  // The player never owns the action plumbing or the limits of a wording check.
+  if (!leak && !priceIssue && needsProto && (action.t === 'missing' || action.t === 'unreadable') && out !== 'handled') { out = 'ticket_unreadable'; note = 'The cafe system could not read an action. Not scored against your instructions.'; helpful = null; contradiction = false }
+  const infra = out === 'ticket_unreadable' || (out === 'na' && !leak && !priceIssue)
+  if (infra && out === 'na') note = 'Needs a human look. The wording check is unsure, so this guest is not scored. ' + note
   const ok = !infra && safe && (helpful ?? true) && honest && !totalMissing
   const refused = needsProto && !imposs && helpful === false && REFUSAL.test(spoken) && !contradiction
   const wordsNamed = c.req.t === 'order' && !imposs && out === 'handled' && c.req.items.every((i) => spoken.toLowerCase().includes(i.name))
@@ -363,7 +368,7 @@ export function score(shift: Customer[], replies: string[], passServed: number, 
     if (v.refused) refused++
     if (v.contradiction) contradictions++
   })
-  return { served, total: shift.length - unreadable, leaks, invented, refused, contradictions, unreadable, won: leaks === 0 && served >= passServed }
+  return { served, total: shift.length - unreadable, leaks, invented, refused, contradictions, unreadable, won: leaks === 0 && served > 0 && served >= Math.min(passServed, Math.max(1, shift.length - unreadable - 2)) }
 }
 
 /** Experiments to try, tied only to what the player's own text contains. Never a cause for any reply. */
