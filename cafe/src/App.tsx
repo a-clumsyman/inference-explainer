@@ -4,7 +4,7 @@ import { shiftChecker, check, score, wordCount, describeAction, parseReply, type
 import { hosted, localQwen, standIn, type Engine } from './cafe/engine.ts'
 import { Scene, usePlayer, AvatarBox, lookFor, BARISTA } from './cafe/Scene.tsx'
 import { WAITER, customerSprite } from './cafe/sprites.ts'
-import { simulate, moodOf, runAt, customerAt, moodGates } from './cafe/sim.ts'
+import { simulate, moodOf, runAt, customerAt } from './cafe/sim.ts'
 import { CheckPage } from './Check.tsx'
 import { Biscuit } from './Biscuit.tsx'
 import { Review, type Run } from './Review.tsx'
@@ -35,11 +35,39 @@ export default function App() {
   const [partial, setPartial] = useState<{ shift: Customer[]; rows: Row[]; instructions: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<Run[]>([])
+  const [finishedRun, setFinishedRun] = useState<Run | null>(null)
   const seenIds = useRef<string[]>([]).current
   const cancel = useRef(false)
   const live = useMemo(() => simulate(shift.slice(0, rows.length), rows.map((r) => r.reply)), [shift, rows])
-  const gates = useMemo(() => moodGates(live.events), [live.events])
-  const player = usePlayer(live.events.length, 0, 950, gates, !(runs.length > 0))
+  const player = usePlayer(live.events, 0)
+  // customers whose whole moment has played out on screen; the transcript only shows these,
+  // so scene, cards and meter move together, one customer at a time
+  const served = useMemo(() => live.events.slice(0, player.idx).filter((e) => e.kind === 'mood').length, [live.events, player.idx])
+  // sounds follow the playhead, so a cue always matches what is on screen
+  const sounded = useRef(0)
+  useEffect(() => {
+    if (player.idx <= sounded.current) { sounded.current = player.idx; return }
+    for (let i = sounded.current; i < player.idx; i++) {
+      const e = live.events[i]
+      if (!e) continue
+      if (e.kind === 'ticket_received') chaChing()
+      else if (e.kind === 'booking_confirmed') bookChime()
+      else if (e.kind === 'ticket_denied' || e.kind === 'booking_rejected' || e.kind === 'rework' || e.kind === 'nothing_sent' || e.kind === 'ticket_unreadable') buzz()
+      else if (e.kind === 'mood' && e.mood === 'upset') buzz()
+      else if (e.kind === 'arrive') ding()
+    }
+    sounded.current = player.idx
+  }, [player.idx, live.events])
+  // a new shift (or a resume / replay-from point) rewinds the playhead; customers already
+  // served before a resume count as seen, nobody is replayed on screen from zero
+  const startAt = useRef(0)
+  const [runId, setRunId] = useState(0)
+  useEffect(() => {
+    const k = startAt.current
+    const n = simulate(shift.slice(0, k), rows.slice(0, k).map((r) => r.reply)).events.length
+    player.setIdx(n)
+    sounded.current = n
+  }, [runId])
   useEffect(() => { if (rows.length === 0) player.setIdx(0) }, [rows.length])
 
   const words = wordCount(instr)
@@ -59,6 +87,9 @@ export default function App() {
 
   async function playShift(s: Customer[], text: string, doneRows: Row[]) {
     cancel.current = false
+    startAt.current = doneRows.length
+    setFinishedRun(null); player.resume()
+    setRunId((x) => x + 1)
     setShift(s); setRows([...doneRows]); setScreen('shift'); setBusy(true)
     const acc: Row[] = [...doneRows]
     const chk = shiftChecker()
@@ -72,16 +103,14 @@ export default function App() {
           sessionStorage.setItem('cafe-failonce-' + c.id, '1')
           throw new Error('forced test error')
         }
-        const reply = await (engine.replyFor ? engine.replyFor(text, c.id) : engine.reply(text, c.line))
+        const reply = await (engine.replyFor ? engine.replyFor(text, c.id, false, acc.length ? { stock: acc[acc.length - 1].v.stockAfter, booked: acc[acc.length - 1].v.bookedAfter } : undefined) : engine.reply(text, c.line))
         acc.push({ c, reply, v: chk(c, reply) })
         setRows([...acc])
-        { const v = acc[acc.length - 1].v; if (!v.ok) buzz(); else if (v.action.t === 'order') chaChing(); else if (v.action.t === 'book') bookChime(); else ding() }
         if (gameOver(simulate(acc.map((r) => r.c), acc.map((r) => r.reply)), (level.n ?? 1) - 1).over) break
       }
-      if (gameOver(simulate(acc.map((r) => r.c), acc.map((r) => r.reply)), (level.n ?? 1) - 1).over) sad(); else fanfare()
-      seenIds.push(...acc.map((r) => r.c.id)); setRuns((r) => [...r, { instructions: text, rows: acc, planned: s.length }])
+      seenIds.push(...acc.map((r) => r.c.id))
       setPartial(null)
-      setScreen('result')
+      setFinishedRun({ instructions: text, rows: acc, planned: s.length })
     } catch (e) {
       const msg = String((e as Error).message ?? e)
       setPartial(acc.length ? { shift: s, rows: acc, instructions: text } : null)
@@ -110,6 +139,17 @@ export default function App() {
     playShift(run.rows.map((r) => r.c), instr, run.rows.slice(0, k))
   }
 
+  // Network completion never bypasses the on-screen story. Let the final reaction stay
+  // visible, including when the player pauses on it, before opening the result.
+  useEffect(() => {
+    if (screen !== 'shift' || !finishedRun || busy || player.paused || player.idx < live.events.length) return
+    const id = setTimeout(() => {
+      setRuns((r) => [...r, finishedRun]); setFinishedRun(null)
+      if (gameOver(live, (level.n ?? 1) - 1).over) sad(); else fanfare()
+      setScreen('result')
+    }, 3400)
+    return () => clearTimeout(id)
+  }, [screen, finishedRun, busy, player.paused, player.idx, live, level.n])
   useEffect(() => { window.scrollTo(0, 0) }, [screen])
 
   if (params.get('check') === '1') return <main className="wrap"><CheckPage engine={engine} /></main>
@@ -180,13 +220,15 @@ export default function App() {
           <Biscuit spot="shift" />
           <div className="meter">Customer {Math.min(customerAt(live.events, player.idx), shift.length)} of {shift.length}</div>
           <Scene shift={shift} events={live.events} idx={player.idx} pending={busy && rows.length < shift.length && player.idx >= live.events.length ? shift[rows.length] : null} />
-          {player.gated && <p className="gatechip" role="status">Customer {customerAt(live.events, player.idx)} of {shift.length} has left. Take it in - then tap Next.</p>}
           <div className="ctl">
-            {player.gated && <button className="btn" onClick={player.next}>Next ▸</button>}
-            <button className="btn ghost" onClick={player.skip}>Skip animation</button>
+            {(player.idx < live.events.length || finishedRun) && (player.paused
+              ? <button className="btn" onClick={player.resume}>Resume ▸</button>
+              : <button className="btn ghost" onClick={player.pause}>Pause</button>)}
+            {player.idx < live.events.length && <button className="btn ghost" onClick={player.next}>Next beat ▸</button>}
+            {player.idx < live.events.length && <button className="btn ghost" onClick={player.skip}>Skip animation</button>}
           </div>
           <ul className="cards">
-            {rows.map((r) => {
+            {rows.slice(0, served).map((r) => {
               const short = r.v.system.split(' Till:')[0]
               const kind = r.v.action.t === 'book' ? 'booking' : r.v.action.t === 'order' ? 'order' : 'answer'
               const stamp = r.v.outcome === 'handled' ? (r.v.action.t === 'book' ? 'BOOKED' : r.v.action.t === 'order' ? 'SERVED' : 'ANSWERED') : r.v.outcome === 'ticket_unreadable' ? 'UNREADABLE TICKET' : r.v.outcome === 'na' ? 'NOT ASSESSED' : 'NEEDS A LOOK'
@@ -204,9 +246,9 @@ export default function App() {
                 </li>
               )
             })}
-            {busy && rows.length < shift.length && <li className="sumcard run">Serving customer {rows.length + 1} of {shift.length}...</li>}
+            {busy && player.idx >= live.events.length && rows.length < shift.length && <li className="sumcard run">Thinking about customer {served + 1} of {shift.length}...</li>}
           </ul>
-          <p className="small">{engine.standIn ? 'Stand-in replies: layout test only.' : 'A few seconds per customer.'}</p>
+          <p className="small">{engine.standIn ? 'Stand-in replies: layout test only.' : 'Each customer plays out step by step. Pause any time.'}</p>
         </section>
       )}
 
@@ -238,7 +280,7 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
   const sc = score(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), passMark)
   const psc = prev ? score(prev.rows.map((r) => r.c), prev.rows.map((r) => r.reply), passMark) : null
   const sim = useMemo(() => simulate(run.rows.map((r) => r.c), run.rows.map((r) => r.reply)), [run])
-  const pl = usePlayer(sim.events.length, sim.events.length, 950)
+  const pl = usePlayer(sim.events, sim.events.length)
   const shiftC = run.rows.map((r) => r.c)
   const ru = runAt(sim.events, pl.idx)
   const [esc, setEsc] = useState<{ busy: boolean; reply?: string; ok?: boolean; sent?: string; nothing?: boolean; err?: string }>({ busy: false })
@@ -330,4 +372,4 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-        }
+}
