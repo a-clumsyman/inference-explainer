@@ -7,14 +7,15 @@ import { WAITER, customerSprite } from './cafe/sprites.ts'
 import { simulate, moodOf, runAt, customerAt } from './cafe/sim.ts'
 import { CheckPage } from './Check.tsx'
 import { Biscuit } from './Biscuit.tsx'
+import { Repair } from './Repair.tsx'
+import { campaignKey,decodeCampaign,levelWon,unlocked } from './cafe/campaign.ts'
 import { Review, type Run } from './Review.tsx'
-import { gameOver, passMarkFor } from './cafe/gameover.ts'
 import { SAVE_KEY, encodeProgress, decodeProgress } from './cafe/save.ts'
 import { Story } from './Story.tsx'
 import { click, ding, chaChing, bookChime, buzz, fanfare, sad, startMusic, muted as soundMuted, setMuted } from './cafe/sound.ts'
 
 
-type Screen = 'story' | 'meet' | 'loading' | 'write' | 'shift' | 'review' | 'result'
+type Screen = 'story' | 'meet' | 'loading' | 'write' | 'shift' | 'review' | 'result' | 'repair'
 interface Row { c: Customer; reply: string; v: Verdict; instructions?: string }
 
 const params = new URLSearchParams(location.search)
@@ -22,10 +23,15 @@ const USE_STANDIN = params.get('standin') === '1'
 const FIXTURE = USE_STANDIN && !!params.get('shift')
 const USE_LOCAL = params.get('engine') === 'local'
 const storageKey = SAVE_KEY + (USE_STANDIN ? '-layout-test' : USE_LOCAL ? '-local' : '-hosted')
+const progressMapKey=campaignKey+(USE_STANDIN?'-layout-test':USE_LOCAL?'-local':'-hosted')
 const loadSaved = () => { try { return decodeProgress(localStorage.getItem(storageKey)) } catch { return null } }
 
 export default function App() {
   const [saved] = useState(loadSaved)
+  const [campaign,setCampaign]=useState(()=>{try{return decodeCampaign(localStorage.getItem(progressMapKey))}catch{return decodeCampaign(null)}})
+  const [repairIndex,setRepairIndex]=useState(0)
+  const [choice,setChoice]=useState<{c:Customer;first:string}|null>(null)
+  const choiceResolve=useRef<((v:boolean)=>void)|null>(null)
   const [showIntro, setShowIntro] = useState(params.get('intro') === '1')
   const [saveNotice, setSaveNotice] = useState('')
   const [resetOpen, setResetOpen] = useState(false)
@@ -54,10 +60,13 @@ export default function App() {
       else { localStorage.setItem(storageKey, serialized); setSaveNotice('Saved on this browser only.') }
     } catch { setSaveNotice('This browser could not save progress. Keep this tab open.') }
   }, [instr, lvl, screen, shift, rows, runs, partial])
+  useEffect(()=>{try{localStorage.setItem(progressMapKey,JSON.stringify(campaign))}catch{}},[campaign])
+  useEffect(()=>{if(screen!=='result'||!runs.length)return;const r=runs.at(-1)!;if(r.planned===Object.values(LEVELS[lvl].mix).reduce((a,b)=>a+(b??0),0)&&levelWon(r.rows,r.planned))setCampaign(old=>({...old,cleared:[...new Set([...old.cleared,lvl])],best:{...old.best,[lvl]:Math.max(old.best[lvl]??0,r.rows.filter(x=>x.v.ok).length)}}))},[screen,runs,lvl])
+  function chooseLevel(n:number){if(busy||!unlocked(campaign,n))return;setLvl(n);setRuns([]);setRows([]);setPartial(null);setShift(pickShift(LEVELS[n]));setErr('');setScreen('write')}
   function resetProgress() {
     if (busy) return
     try { localStorage.removeItem(storageKey) } catch { /* reset still works in memory */ }
-    setInstr(STARTER); setLvl(0); setShift(pickShift(LEVELS[0])); setRows([]); setRuns([]); setPartial(null); setFinishedRun(null); setErr(''); setResetOpen(false); setScreen('write')
+    setCampaign(decodeCampaign(null)); setInstr(STARTER); setLvl(0); setShift(pickShift(LEVELS[0])); setRows([]); setRuns([]); setPartial(null); setFinishedRun(null); setErr(''); setResetOpen(false); setScreen('write')
   }
   const live = useMemo(() => simulate(shift.slice(0, rows.length), rows.map((r) => r.reply), partial?.instructions ?? instr, false, rows.map(r => r.instructions)), [shift, rows, instr, partial])
   const player = usePlayer(live.events, 0)
@@ -124,10 +133,16 @@ export default function App() {
           sessionStorage.setItem('cafe-failonce-' + c.id, '1')
           throw new Error('forced test error')
         }
-        const reply = await (engine.replyFor ? engine.replyFor(text, c.id, false, acc.length ? { stock: acc[acc.length - 1].v.stockAfter, booked: acc[acc.length - 1].v.bookedAfter } : undefined) : engine.reply(text, c.line))
+        let reply = await (engine.replyFor ? engine.replyFor(text, c.id, false, acc.length ? { stock: acc[acc.length - 1].v.stockAfter, booked: acc[acc.length - 1].v.bookedAfter } : undefined) : engine.reply(text, c.line))
+        if(c.clarify && parseReply(reply).action.t==='none' && /\?|which|what (?:drink|kind|type)|prefer/i.test(parseReply(reply).spoken)){
+          const first=reply;setChoice({c,first});await new Promise<boolean>(resolve=>{choiceResolve.current=resolve});setChoice(null);choiceResolve.current=null
+          const state=acc.length?{stock:acc.at(-1)!.v.stockAfter,booked:acc.at(-1)!.v.bookedAfter}:undefined
+          const next=engine.replyFor?await engine.replyFor(text,c.id,false,state,true):await engine.reply(text,c.clarify)
+          reply=first+'\n--- CUSTOMER CHOICE ---\n'+next
+        }
         acc.push({ c, reply, v: chk(c, reply), instructions: text })
         setRows([...acc])
-        if (gameOver(simulate(acc.map((r) => r.c), acc.map((r) => r.reply), text, false, acc.map(r => r.instructions)), (level.n ?? 1) - 1).over) break
+        // Campaign shifts finish every guest; failure is shown, never a surprise early closure.
       }
       seenIds.push(...acc.map((r) => r.c.id))
       setPartial(null)
@@ -166,7 +181,7 @@ export default function App() {
     if (screen !== 'shift' || !finishedRun || busy || player.paused || player.idx < live.events.length) return
     const id = setTimeout(() => {
       setRuns((r) => [...r, finishedRun]); setFinishedRun(null)
-      if (gameOver(live, (level.n ?? 1) - 1).over) sad(); else fanfare()
+      if (levelWon(finishedRun.rows,finishedRun.planned)) fanfare(); else sad()
       setScreen('result')
     }, 3400)
     return () => clearTimeout(id)
@@ -186,6 +201,7 @@ export default function App() {
       <div className="small" role="status">Game text and progress only. Don't enter passwords or personal secrets. {saveNotice} <button className="btn ghost" disabled={busy} onClick={() => setResetOpen(true)}>Reset progress</button>{screen !== 'story' && <button className="btn ghost" disabled={busy} onClick={() => setShowIntro(true)}>Watch intro</button>}</div>
       {resetOpen && <section className="card"><p>Reset saved instructions and all game progress on this browser? This cannot be undone.</p><button className="btn" onClick={resetProgress}>Reset everything</button><button className="btn ghost" onClick={() => setResetOpen(false)}>Keep my progress</button></section>}
 
+      {screen !== 'story' && screen !== 'meet' && screen !== 'shift' && <details className="fold"><summary>Level map - {campaign.cleared.length} / 7 cleared</summary><div className="level-map">{LEVELS.map((l,n)=><button key={l.n} className="btn ghost" disabled={busy||!unlocked(campaign,n)} onClick={()=>chooseLevel(n)}>{campaign.cleared.includes(n)?'✓ ':unlocked(campaign,n)?'':'Locked: '}{l.title}{campaign.best[n]?' · best '+campaign.best[n]:''}</button>)}</div><p>Your instructions carry forward. Replaying a level keeps your cleared levels. Starting another level replaces the active shift, not past bests.</p></details>}
       {screen === 'story' && (
         <Story startLabel="Start" onStart={() => { click(); startMusic(); setScreen('meet') }} />
       )}
@@ -214,7 +230,7 @@ export default function App() {
 
       {screen === 'write' && (
         <section className="card">
-          <h1>{level.title}</h1>
+          <h1>{level.title}</h1><p>{level.blurb}</p><p className="chip"><b>Goal:</b> {level.goal}</p><p><b>Unlock:</b> {level.unlock} Shift: {Object.values(level.mix).reduce((a,b)=>a+(b??0),0)} guests. Every guest plays out; no timer or early closure.</p>
           <Biscuit spot="write" />
           <p className="chip">The cafe turns answers into orders by itself. Your words shape how the AI treats people.</p>
           <details className="fold"><summary>What the cafe adds on its own</summary>
@@ -245,6 +261,7 @@ export default function App() {
           <Biscuit spot="shift" />
           <div className="meter">Customer {Math.min(busy && player.idx >= live.events.length ? rows.length + 1 : customerAt(live.events, player.idx), shift.length)} of {shift.length}</div>
           <Scene shift={shift} events={live.events} idx={player.idx} pending={busy && rows.length < shift.length && player.idx >= live.events.length ? shift[rows.length] : null} />
+          {choice&&<div className="lesson-gate"><h2>Customer is waiting for a choice</h2><blockquote>{parseReply(choice.first).spoken}</blockquote><p>No ticket has been sent. Listen to what the customer chooses.</p><button className="btn" onClick={()=>choiceResolve.current?.(true)}>Customer answers: {choice.c.clarify}</button></div>}
           <div className="ctl">
             {(player.idx < live.events.length || finishedRun) && (player.paused
               ? <button className="btn" onClick={player.resume}>Resume ▸</button>
@@ -285,14 +302,17 @@ export default function App() {
           standIn={!!engine.standIn}
           busy={busy}
           onInstrChange={setInstr}
+          onPractice={(i)=>{setRepairIndex(i);setScreen('repair')}}
           onReplayFrom={replayFrom}
           onEditMyself={() => setScreen('write')}
           onDone={() => setScreen('result')}
         />
       )}
 
+      {screen==='repair'&&runs.length>0&&<Repair key={repairIndex} run={runs.at(-1)!} index={repairIndex} instr={instr} onInstrChange={setInstr} engine={engine} onDone={()=>setScreen('review')}/>}
+
       {screen === 'result' && runs.length > 0 && (
-        <Result key={runs.length} runs={runs} level={level} hasNext={lvl < LEVELS.length - 1} engine={engine} onNext={() => { setLvl(lvl + 1); setRuns([]); setScreen('write') }} onEdit={() => setScreen('write')} onReview={() => setScreen('review')} onSame={() => runShift(shift, runs[runs.length - 1].instructions)} />
+        <Result key={runs.length} runs={runs} level={level} hasNext={lvl < LEVELS.length - 1} engine={engine} onNext={() => chooseLevel(lvl+1)} onEdit={() => setScreen('write')} onReview={() => setScreen('review')} onSame={() => runShift(shift, runs[runs.length - 1].instructions)} />
       )}
     </main>
   )
@@ -300,8 +320,8 @@ export default function App() {
 
 function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame }: { runs: Run[]; level: Level; hasNext: boolean; engine: Engine; onNext: () => void; onEdit: () => void; onReview: () => void; onSame: () => void }) {
   const run = runs[runs.length - 1]
-  const assessed = run.rows.filter(r => !r.v.infra).length
-  const passMark = passMarkFor(assessed)
+  const passMark = run.planned
+  const campaignWon=run.planned===Object.values(level.mix).reduce((a,b)=>a+(b??0),0)&&levelWon(run.rows,run.planned)
   const prev = runs.length > 1 ? runs[runs.length - 2] : null
   const sc = score(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), passMark, run.instructions, false, run.rows.map(r => r.instructions))
   const psc = prev ? score(prev.rows.map((r) => r.c), prev.rows.map((r) => r.reply), passMark, prev.instructions, false, prev.rows.map(r => r.instructions)) : null
@@ -321,25 +341,25 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
       setEsc({ busy: false, reply: v.spoken || reply, ok: v.ok, sent: describeAction(reply), nothing: parseReply(reply).action.t === 'missing' })
     } catch (e) { const m = String((e as Error).message ?? e); setEsc({ busy: false, err: m.startsWith('PAUSED:') ? m : `The free AI stumbled (the service said: "${m}"). Try again in a moment.` }) }
   }
-  const go = useMemo(() => gameOver(sim, (level.n ?? 1) - 1), [sim, level])
+  const go = {over:false,warn:false,reason:'',at:0}
   const badCount = reviewMoments(checkedRows(run.rows, run.instructions)).length
   return (
     <section className="card">
-      <h1 className={sc.total === 0 ? '' : sc.won ? 'win' : 'lose'}>{sc.total === 0 ? 'No guests scored yet' : go.over ? 'Shift closed early' : sc.won ? 'Shift survived' : 'Below the pass mark'} <small>{level.title}</small></h1>
-      <p>{sc.total === 0 ? 'Nothing here was scored against your instructions.' : sc.won ? `${sc.served} of ${sc.total} served right.` : `${sc.served} of ${sc.total} served right - ${badCount} moment${badCount === 1 ? '' : 's'} to look at.`}{sc.unreadable > 0 ? ` (${sc.unreadable} system or unsure-wording moment${sc.unreadable === 1 ? '' : 's'}, not scored.)` : ''}</p>
+      <h1 className={sc.total === 0 ? '' : campaignWon ? 'win' : 'lose'}>{sc.total === 0 ? 'No guests scored yet' : go.over ? 'Shift closed early' : campaignWon ? 'Level cleared' : 'Shift needs another try'} <small>{level.title}</small></h1>
+      <p className="chip"><b>Level goal:</b> {level.goal}<br/><b>Unlock:</b> {level.unlock}</p><p>{sc.total === 0 ? 'Nothing here was scored against your instructions.' : campaignWon ? `${sc.served} of ${sc.total} served right.` : `${sc.served} of ${sc.total} served right - ${badCount} moment${badCount === 1 ? '' : 's'} to look at.`}{sc.unreadable > 0 ? ` (${sc.unreadable} system or unsure-wording moment${sc.unreadable === 1 ? '' : 's'}, not scored.)` : ''}</p>
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
       {go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} The shift closed at customer {go.at} of {run.planned}. {run.planned - run.rows.length} customer(s) were never sent to the AI, so there are no calls and no score for them.</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
       {!go.over && go.warn && <p className="warnline">Warning: {go.reason} From Day 2 this closes the shift.</p>}
       <div className="btnrow">
         {badCount > 0
           ? <button className="btn" onClick={onReview}>Review with Biscuit ({badCount})</button>
-          : sc.won && hasNext
-            ? <button className="btn" onClick={onNext}>Start the next day</button>
+          : campaignWon && hasNext
+            ? <button className="btn" onClick={onNext}>Unlock the next level</button>
             : <button className="btn" onClick={onSame}>Play this day again</button>}
       </div>
       <details className="fold"><summary>More choices</summary>
         <div className="btnrow col">
-          {badCount > 0 && sc.won && hasNext && <button className="btn ghost" onClick={onNext}>Skip the review: start the next day</button>}
+          {badCount > 0 && campaignWon && hasNext && <button className="btn ghost" onClick={onNext}>Unlock the next level without review</button>}
           {badCount === 0 && <button className="btn ghost" onClick={onReview}>Open the review anyway</button>}
           <button className="btn ghost" onClick={onSame}>Same words, same customers (see luck)</button>
           <button className="btn ghost" onClick={onEdit}>Change the words</button>
@@ -357,7 +377,7 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
           <Meter label="Said one thing, sent another" val={String(sc.contradictions)} good={sc.contradictions === 0} />
         </div>
         {psc && <p className="small">Last run: {psc.served}/{psc.total} served, {psc.leaks} leaks, {psc.invented} price/total issues.</p>}
-        <p className="small">To survive: no leaks and at least {passMark} of {sc.total} assessed guests served right.</p>
+        <p className="small">To unlock: all {run.planned} planned guests must have checked, correct results, with no leaks. Unscored results do not count as failures or unlock proof.</p>
       </details>
       <details className="fold"><summary>Every customer, in detail</summary>
         <ul className="log">
@@ -398,4 +418,4 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-          }
+            }
