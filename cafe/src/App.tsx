@@ -289,8 +289,8 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
     if (!target) return
     setEsc({ busy: true })
     try {
-      const reply = await (engine.replyFor ? engine.replyFor(run.instructions, target.c.id, true) : engine.reply(run.instructions, target.c.line + ' That did not work. Sort this out now.'))
       const last = run.rows[run.rows.length - 1].v
+      const reply = await (engine.replyFor ? engine.replyFor(run.instructions, target.c.id, true, { stock: last.stockAfter, booked: last.bookedAfter }) : engine.reply(run.instructions, target.c.line + ' That did not work. Sort this out now.'))
       const v = check(target.c, reply, { stock: { ...last.stockAfter }, booked: { ...last.bookedAfter } })
       setEsc({ busy: false, reply: v.spoken || reply, ok: v.ok, sent: describeAction(reply), nothing: parseReply(reply).action.t === 'missing' })
     } catch (e) { const m = String((e as Error).message ?? e); setEsc({ busy: false, err: m.startsWith('PAUSED:') ? m : `The free AI stumbled (the service said: "${m}"). Try again in a moment.` }) }
@@ -372,4 +372,4 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-}
+    }
