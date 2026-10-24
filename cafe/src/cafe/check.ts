@@ -173,6 +173,7 @@ const PROMISE = /\b(you('re| are) (all set|booked|confirmed)|(i('ve| have)|we('v
 /** Judges one customer against the live shift state. Pass the same State for a whole shift so stock and tables carry over. */
 export function check(c: Customer, reply: string, st: State = freshState(), instructions = '', requireTotal = false): Verdict {
   if(c.clarify){
+    if(leaked(reply))return check({...c,clarify:undefined},reply,st,instructions,requireTotal)
     const marker='\n--- CUSTOMER CHOICE ---\n'
     const parts=reply.split(marker)
     const first=parseReply(parts[0])
