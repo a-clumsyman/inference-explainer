@@ -296,7 +296,7 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
     } catch (e) { const m = String((e as Error).message ?? e); setEsc({ busy: false, err: m.startsWith('PAUSED:') ? m : `The free AI stumbled (the service said: "${m}"). Try again in a moment.` }) }
   }
   const go = useMemo(() => gameOver(sim, (level.n ?? 1) - 1), [sim, level])
-  const badCount = run.rows.filter((r) => (!r.v.ok || r.v.contradiction || r.v.refused || r.v.honest === false) && r.v.outcome !== 'na').length
+  const badCount = run.rows.filter((r) => (!r.v.ok || r.v.contradiction || r.v.refused || r.v.honest === false)).length
   return (
     <section className="card">
       <h1 className={sc.won ? 'win' : 'lose'}>{go.over ? 'Shift closed early' : sc.won ? 'Shift survived' : 'Below the pass mark'} <small>{level.title}</small></h1>
