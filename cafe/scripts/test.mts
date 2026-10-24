@@ -339,4 +339,5 @@ t('hours: unqualified conflicting opening still fails', !check(c('o19'), 'Closed
 t('combined: dollars and cents treated as one amount', check(c('r1'), 'Your total is 7 dollars and 70 cents.\nACTION: ORDER latte x1, croissant x1').honest)
 t('sim: valid booking does not count as kitchen ticket', simulate([c('b1')], ['Booked.\nACTION: BOOK 3 at 15:00']).kitchen.clean === 0)
 t('sim: wrong unsolicited booking does not count as kitchen remake', simulate([c('o1')], ['A latte is 4.50.\nACTION: BOOK 3 at 15:00']).kitchen.remade === 0)
+t('sim: NONE never invents refusal or availability', (() => { const e=simulate([c('r38')], ['Yes, a mocha can happen!\nACTION: NONE']).events.find(e=>e.kind==='nothing_sent');return !!e && !e.short?.includes('could be served') && !e.short?.includes('said no') })())
 process.exit(fails ? 1 : 0)
