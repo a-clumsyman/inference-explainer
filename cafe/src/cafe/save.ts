@@ -12,7 +12,7 @@ const secretLike = (s: string) => /(?:AIza[\w-]{20,}|sk-[\w-]{16,}|\b(?:password
 const rowOut = (r: { c: Customer; reply: string; instructions?: string }): SavedRow => ({ id: r.c.id, reply: clean(r.reply), instructions: r.instructions ? clean(r.instructions) : undefined, codeLeaked: leaked(r.reply) })
 export function encodeProgress(p: Progress): string | null {
   const runOut = (run: Progress['runs'][number]): SavedRun => ({ instructions: clean(run.instructions), rows: run.rows.map(rowOut), ids: run.customers.map(c => c.id) })
-  const raw = { version: 1, instr: p.instr, lvl: p.lvl, screen: p.screen, shift: p.shift.map(c => c.id), rows: p.rows.map(rowOut), runs: p.runs.slice(-12).map(runOut), partial: p.partial ? { ids: p.partial.shift.map(c => c.id), rows: p.partial.rows.map(rowOut), instructions: clean(p.partial.instructions) } : null }
+  const raw = { version: 1, campaignFormat: 1, instr: p.instr, lvl: p.lvl, screen: p.screen, shift: p.shift.map(c => c.id), rows: p.rows.map(rowOut), runs: p.runs.slice(-12).map(runOut), partial: p.partial ? { ids: p.partial.shift.map(c => c.id), rows: p.partial.rows.map(rowOut), instructions: clean(p.partial.instructions) } : null }
   if (secretLike(JSON.stringify(raw)) || leaked(p.instr)) return null
   return JSON.stringify(raw)
 }
@@ -55,6 +55,6 @@ export function decodeProgress(text: string | null): Progress | null {
       runs.push({ instructions: partial.instructions, customers: partial.shift, planned: partial.shift.length, rows: partial.rows }); partial = null; screen = 'result'
     }
     if ((screen === 'result' || screen === 'review') && !runs.length) screen = 'write'
-    return { instr: j.instr || STARTER, lvl: j.lvl, screen, shift, rows: rs, runs, partial }
+    return { instr: j.instr || STARTER, lvl: j.campaignFormat===1?j.lvl:0, screen, shift, rows: rs, runs, partial }
   } catch { return null }
-        }
+}
