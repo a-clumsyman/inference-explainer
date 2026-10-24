@@ -5,7 +5,7 @@ import { reducedMotion } from './cafe/Scene.tsx'
 /** Biscuit the cat: a local, scripted walkthrough. No AI, no network, never edits the player's text. */
 export type Spot = 'write' | 'shift' | 'review' | 'result' | 'over'
 const STEPS: Record<Spot | 'resultClean', string[]> = {
-  write: ['Write what the AI should do, in your own words.', 'Say what to do when it cannot help: not on the menu, sold out, no table.', 'The cafe turns answers into orders itself - that part is never your job.', 'Happy? Open the cafe.'],
+  write: ['Write what the AI should do, in your own words.', 'A clear no is enough when something cannot be done. You can also offer a supported choice, without placing it until the customer agrees.', 'The cafe turns answers into orders itself - that part is never your job.', 'Happy? Open the cafe.'],
   shift: ['One card per customer. Tap a card for the play-by-play.', 'Green SERVED or BOOKED is good. Anything red needs a look in the review.'],
   review: ['One moment at a time. I say what happened, in plain words.', 'A suggestion is an experiment, not a proven fix. Tap Apply only if you like it.', 'Your words change only when you say so.'],
   result: ['Open the review to walk the rough moments with me.', 'Change one thing, then replay - that is the game.'],
