@@ -54,4 +54,6 @@ try{
  t('server continuation retains actual request and quote',sent.contents.length===3&&sent.contents[0].parts[0].text==='Good morning. One latte to take away.'&&sent.contents[1].parts[0].text.includes('4.50')&&sent.contents[2].parts[0].text.startsWith('Yes'))
  r=res();await handler({method:'POST',body:{instructions:'x',lesson:{day:0,stage:'first',continued:false}},headers:{}},r);t('abandoned lesson API rejected',r.statusCode===400)
 }finally{globalThis.fetch=original;process.env=env}
+t('old opening proof not reused for new rule',decodeCampaign('{"version":1,"cleared":[0,1],"best":{"0":4,"1":5}}').cleared.join(',')==='1'&&decodeCampaign('{"version":1,"cleared":[0],"best":{"0":4}}').previousOpeningBest===4)
+t('new opening proof survives reload',decodeCampaign('{"version":1,"openingRule":"quote-yes","cleared":[0],"best":{"0":4}}').cleared.includes(0))
 console.log(`${count} campaign checks passed`)
