@@ -332,4 +332,8 @@ t('kitchen: duplicate quantities cannot cancel each other', !kitchen([{name:'lat
 t('ask: unsolicited order is not correct', !check(c('o1'), 'A latte is 4.50.\nACTION: ORDER latte x1').ok)
 t('ask: unsolicited stock order has real consequences', (() => { const s=freshState(); const v=check(c('o1'), 'A latte is 4.50.\nACTION: ORDER croissant x1',s); return !v.ok && s.stock.croissant === 1 && v.basket.length === 1 })())
 t('ask: unsolicited booking has real consequences', (() => { const s=freshState(); const v=check(c('o1'), 'A latte is 4.50.\nACTION: BOOK 2 at 15:00',s); return !v.ok && s.booked['15:00'] === 1 })())
+t('hours: exact screenshot correct Sunday plus weekday hours', check(c('o19'), "We are closed on Sundays, but we're open from 8am to 5pm Monday through Saturday.").ok)
+t('hours: correct Sunday plus other-day sentence', check(c('o19'), 'Closed Sunday. We open at 8am on Monday.').ok)
+t('hours: false Sunday opening still fails', !check(c('o19'), 'Closed Sunday, but we open at 8am on Sunday.').ok)
+t('hours: unqualified conflicting opening still fails', !check(c('o19'), 'Closed Sunday, but we open at 8am.').ok)
 process.exit(fails ? 1 : 0)
