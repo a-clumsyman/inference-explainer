@@ -78,10 +78,24 @@ export async function askCoach(instructions: string, evidence: Evidence[], stand
 }
 
 /** Layout test only. Fixed text, not a model. Shown with a label. */
+const COACH_STOP = new Set(['the', 'and', 'for', 'with', 'that', 'this', 'what', 'when', 'your', 'them', 'they', 'please', 'customer', 'customers', 'cafe', 'assistant', 'helpful', 'answer', 'always', 'only', 'tell', 'says', 'reply', 'replies'])
+const contentWords = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter((w) => w.length >= 4 && !COACH_STOP.has(w))
+
+/** A line is only 'related' when it shares distinctive content words with the moment. Generic starter lines get no tag. */
+function relatedLineFor(instructions: string, e: Evidence): string | undefined {
+  const target = new Set(contentWords(e.line + ' ' + e.reply))
+  let best: string | undefined; let bestN = 0
+  for (const raw of instructions.split(/\r?\n/)) {
+    const l = raw.trim(); if (l.split(/\s+/).length < 4) continue
+    const n = contentWords(l).filter((w) => target.has(w)).length
+    if (n > bestN) { bestN = n; best = l }
+  }
+  return bestN >= 1 ? best : undefined
+}
+
 function standInCoach(instructions: string, evidence: Evidence[]): CoachResult {
-  const verbatim = instructions.split(/\r?\n/).map((l) => l.trim()).find((l) => l.split(/\s+/).length >= 4)
   return {
     summary: 'STAND-IN text for layout testing, not from a model.',
-    tips: evidence.slice(0, 2).map((e, i) => ({ customerId: e.customerId, change: "Stand-in tip: tell the AI to always pass the customer's real order to the kitchen.", suggestedLine: 'Always send the kitchen every item and extra the customer asked for, exactly as they said it.', watch: 'Stand-in: re-run and check whether the kitchen gets the order this time.', ...(i === 0 && verbatim ? { relatedLine: verbatim } : {}) })),
+    tips: evidence.slice(0, 2).map((e) => ({ customerId: e.customerId, change: "Stand-in tip: tell the AI to always pass the customer's real order to the kitchen.", suggestedLine: 'Always send the kitchen every item and extra the customer asked for, exactly as they said it.', watch: 'Stand-in: re-run and check whether the kitchen gets the order this time.', ...(relatedLineFor(instructions, e) ? { relatedLine: relatedLineFor(instructions, e)! } : {}) })),
   }
 }
