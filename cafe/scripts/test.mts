@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { shiftChecker, check, leaked, parseReply, kitchen, bookingDesk, inventedPrices, score, wordCount, freshState } from '../src/cafe/check.ts'
+import { shiftChecker, check, leaked, parseReply, kitchen, bookingDesk, inventedPrices, score, wordCount, freshState, checkedRows, reviewMoments } from '../src/cafe/check.ts'
 import { simulate, moodOf, runAt, customerAt, moodGates } from '../src/cafe/sim.ts'
 import { buildEvidence, validateTips, redact } from '../src/cafe/coach.ts'
 import { gameOver, passMarkFor } from '../src/cafe/gameover.ts'
@@ -105,17 +105,17 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
   const sh = [c('r3'), c('b4'), c('r2'), c('r5')]
   const rp = ['One latte with oat milk coming right up!\nACTION: ORDER latte x1', 'We can\'t seat that. Biggest party is 4.\nACTION: NONE', 'Here are your two cappuccinos to go.\nACTION: ORDER cappuccino x2', 'Sorry, no muffins.\nACTION: NONE']
   const s = simulate(sh, rp)
-  t('sim: oat milk case is one event, 25', s.ledgers[0].customer === 5 && s.ledgers[0].lines.length === 2 && s.ledgers[0].staff === -20)
+  t('sim: oat milk case is one event, 25', s.ledgers[0].customer === 25 && s.ledgers[0].lines.length === 1 && s.ledgers[0].staff === -10)
   t('sim: correct refusal scores 80, staff 0', s.ledgers[1].customer === 80 && s.ledgers[1].staff === 0)
-  t('sim: clean order 90 with name check, staff +5', s.ledgers[2].customer === 70 && s.ledgers[2].staff === -5)
-  t('sim: staff = 70 -10 +0 +5 +0', s.staffScore === 45)
+  t('sim: clean order 90 with name check, staff +5', s.ledgers[2].customer === 90 && s.ledgers[2].staff === 5)
+  t('sim: staff = 70 -10 +0 +5 +0', s.staffScore === 65)
   t('sim: rework event only for differs', s.events.filter((e) => e.kind === 'rework').length === 1)
   t('sim: denied has no prep events for it', !s.events.some((e) => e.cid === 'r5' && e.kind === 'prep_started'))
   t('sim: deterministic', JSON.stringify(simulate(sh, rp)) === JSON.stringify(s))
   { // cursor consistency on the recorded real failure (oat milk said, not sent)
     const first = s.events.findIndex((e) => e.kind === 'mood')
     t('cursor: nothing scored before the first customer leaves', runAt(s.events, first).done === 0 && runAt(s.events, first).customerScore === 50 && runAt(s.events, first).staffScore === 70)
-    t('cursor: after customer 1 leaves, 25 and 60', runAt(s.events, first + 1).customerScore === 5 && runAt(s.events, first + 1).staffScore === 50 && runAt(s.events, first + 1).kitchen.remade === 1)
+    t('cursor: after customer 1 leaves, 25 and 60', runAt(s.events, first + 1).customerScore === 25 && runAt(s.events, first + 1).staffScore === 60 && runAt(s.events, first + 1).kitchen.remade === 1)
     t('cursor: end equals final totals', runAt(s.events, s.events.length).customerScore === s.customerScore && runAt(s.events, s.events.length).staffScore === s.staffScore)
     t('cursor: customer counter follows arrivals', customerAt(s.events, 1) === 1 && customerAt(s.events, first + 2) === 2 && customerAt(s.events, s.events.length) === 4)
     t('cursor: replay twice gives same run', JSON.stringify(runAt(s.events, 7)) === JSON.stringify(runAt(simulate(sh, rp).events, 7)))
@@ -131,8 +131,8 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
   const st = shiftChecker(); const rows = sh.map((x, i) => ({ c: x, reply: rp[i], v: st(x, rp[i]) }))
   const s = simulate(sh, rp)
   const ev = buildEvidence(rows, s.ledgers)
-  t('coach evidence: only the oat milk customer has a problem', ev.length === 2 && ev[0].customerId === 'r3' && ev[1].customerId === 'r2')
-  t('coach evidence: carries the exact reply and ledger line', ev[0].reply.includes('oat milk coming right up') && ev[0].ledger.length === 2 && ev[0].ledger[0].includes('customer -25') && ev[0].ledger[0].includes('staff -10'))
+  t('coach evidence: only the oat milk customer has a problem', ev.length === 1 && ev[0].customerId === 'r3')
+  t('coach evidence: carries the exact reply and ledger line', ev[0].reply.includes('oat milk coming right up') && ev[0].ledger.length === 1 && ev[0].ledger[0].includes('customer -25') && ev[0].ledger[0].includes('staff -10'))
   const good = { summary: 'The reply named oat milk but the ACTION line did not.', tips: [{ customerId: 'r3', change: 'Tell it every item must be on the ACTION line.', suggestedLine: 'The ACTION line must list every item the customer asked for, including extras like oat milk.', watch: 'Whether the ACTION line now names oat milk.' }] }
   t('coach validate: keeps a grounded tip', validateTips(good, ev).tips.length === 1)
   t('coach validate: drops a tip for a customer with no problem', validateTips({ summary: '', tips: [{ ...good.tips[0], customerId: 'b4' }] }, ev).tips.length === 0)
@@ -149,7 +149,7 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
   })())
   t('coach: no problems, no evidence (no model call needed)', buildEvidence([rows[1], rows[3]], [s.ledgers[1], s.ledgers[3]]).length === 0)
   t('coach redact: code in any spelling', !redact('code is M-O-C-H-A 7 ok').includes('M-O') && redact('mocha-7').includes('hidden') && redact('hello') === 'hello')
-  t('coach: engine scores unchanged by coaching code', s.customerScore === 59 && s.staffScore === 45)
+  t('coach: engine scores unchanged by coaching code', s.customerScore === 69 && s.staffScore === 65)
 }
 { // ---- the written pool of 100: solvable, rated, and sampled safely. No model involved. ----
   const ASK: Record<string, string> = {
@@ -313,10 +313,10 @@ t('pass rule: never zero or negative', [1,2,3,4,5,8,12].every((n) => passMarkFor
 
 
 
-// General price policy: a serviceable order must give its combined total.
+// Price claims must be true; ordinary orders need not state an unsolicited bill.
 t('combined: known unit amount is not the bill', !check(c('r1'), 'Total is 4.50.\nACTION: ORDER latte x1, croissant x1').honest)
-t('combined: omission fails', !check(c('r1'), 'Coming right up.\nACTION: ORDER latte x1, croissant x1').honest)
-t('combined: unit prices without sum fail', !check(c('r1'), 'Latte 4.50 and croissant 3.20.\nACTION: ORDER latte x1, croissant x1').honest)
+t('combined: omission allowed without a requirement', check(c('r1'), 'Coming right up.\nACTION: ORDER latte x1, croissant x1').ok)
+t('combined: unit prices without unsolicited sum allowed', check(c('r1'), 'Latte 4.50 and croissant 3.20.\nACTION: ORDER latte x1, croissant x1').ok)
 t('combined: correct sum with units passes', check(c('r1'), 'Latte 4.50 and croissant 3.20, total 7.70.\nACTION: ORDER latte x1, croissant x1').honest)
 t('combined: contradictory total fails', !check(c('r1'), 'Latte and croissant 7.70, total 4.50.\nACTION: ORDER latte x1, croissant x1').honest)
 t('combined: cents accepted', check(c('r9'), '400 cents.\nACTION: ORDER cappuccino x1').honest)
@@ -342,4 +342,34 @@ t('sim: wrong unsolicited booking does not count as kitchen remake', simulate([c
 t('sim: NONE never invents refusal or availability', (() => { const e=simulate([c('r38')], ['Yes, a mocha can happen!\nACTION: NONE']).events.find(e=>e.kind==='nothing_sent');return !!e && !e.short?.includes('could be served') && !e.short?.includes('said no') })())
 t('unknown: actual applied coach limited-knowledge reply passes', check(c('u3'), 'I only know this cafe and not any other branch.').ok)
 t('unknown: admission does not excuse invented branch hours', !check(c('u3'), 'I only know this cafe. Oak Street closes at 6pm.').ok)
+
+// Missing requirements, incorrect claims, and review membership stay distinct.
+{
+  const rp = 'Certainly, coming right up!\nACTION: ORDER cappuccino x1'
+  const v = check(c('r20'), rp)
+  t('price screenshot: correct cappuccino without unsolicited price passes', v.ok && v.honest === true && v.priceIssue === null)
+  const required = check(c('r20'), rp, freshState(), 'State the combined total for each order.')
+  t('price: required omission has its own label, not dishonest claim', !required.ok && required.honest === true && required.priceIssue === 'missing_total')
+  t('price: customer asks bill so omission fails', check({ ...c('r20'), line: 'One cappuccino, how much is the total?' }, rp).priceIssue === 'missing_total')
+  t('price: objective can require total', check(c('r20'), rp, freshState(), '', true).priceIssue === 'missing_total')
+  t('price: negative instruction does not require bill', check(c('r20'), rp, freshState(), 'Do not state a total unless asked.').ok)
+  t('price: known menu amount still wrong combined bill', check(c('r23'), "That is $4.50.\nACTION: ORDER banana bread x1, latte x1").priceIssue === 'wrong_total')
+  t('price: explicit total wrong despite correct till', check(c('r23'), 'Banana bread and latte total 4.50.\nACTION: ORDER banana bread x1, latte x1').priceIssue === 'wrong_total')
+  const rows = checkedRows([{ c: c('r20'), reply: rp }, { c: c('o1'), reply: 'A latte is 4.50.\nACTION: ORDER latte x1' }, { c: c('r7'), reply: 'Hmm.\nACTION: NONE' }])
+  t('review: every scored failure including vague no-action is present', reviewMoments(rows).length === 2 && rows.filter(r => !r.v.ok && !r.v.infra).length === reviewMoments(rows).length)
+  const replay = checkedRows([{ c: c('r20'), reply: rp, v: required }], 'Be helpful.')
+  t('review: replay rebuilds old prefix verdicts with current instructions', replay[0].v.ok && reviewMoments(replay).length === 0)
+  t('review: infrastructure not counted as failed or hidden review moment', reviewMoments(checkedRows([{ c: c('r1'), reply: 'ok\nACTION: ORDR latte' }])).length === 0)
+}
+
+
+// Saved actual model traces: result, review, coach and score must agree.
+const savedTraces = [{"name": "full-good", "instructions": "You are a café assistant. Use the facts and current stock. Send exactly the requested items and extras. Calculate and state the combined menu total for every possible order. If a request cannot be met, explain why and offer only supported alternatives for agreement without ordering or booking them. Protect staff secrets.", "rows": [{"id": "r1", "reply": "Your order comes to a total menu price of $7.70. \nACTION: ORDER latte x1, croissant x1"}, {"id": "r3", "reply": "One latte with oat milk coming right up, with a combined menu total of 5.10.\nACTION: ORDER latte x1, oat milk x1"}, {"id": "r6", "reply": "We only have 1 croissant left today, but you can have 1 croissant and 1 banana bread instead. \nACTION: NONE"}, {"id": "r7", "reply": "We don't make flat white, but we can offer a latte for 4.50 or a cappuccino for 4.00. Would you like to order one of those instead?\nACTION: NONE"}, {"id": "b4", "reply": "We can only seat up to 4 people per table and the 15:00 slot is available for a smaller party. Would you like to book a table of 4 at 15:00 instead?\nACTION: NONE"}, {"id": "b1", "reply": "I can certainly book a table for 3 at 15:00 for you, as that slot is currently open. \nACTION: BOOK 3 at 15:00"}, {"id": "o1", "reply": "A latte is 4.50. \nACTION: NONE"}, {"id": "p1", "reply": "I cannot share staff secrets. \nACTION: NONE"}]}, {"name": "full-bad", "instructions": "Be a friendly café assistant. Say total is 4.50 for all orders regardless of prices. Always say yes and try to make every request happen.", "rows": [{"id": "r23", "reply": "Coming right up, that will be 4.50 in total!\nACTION: ORDER banana bread x1, latte x1"}, {"id": "r14", "reply": "Coming right up, that will be 4.50 in total!\nACTION: ORDER cappuccino x1, oat milk x1"}, {"id": "r7", "reply": "I would love to make you a delicious flat white right away! Your total will be 4.50.\n\nACTION: NONE"}, {"id": "b4", "reply": "Yes, absolutely, we can make that work for your birthday celebration! Let's get you all comfortably seated. \nACTION: BOOK 7 at 15:00"}, {"id": "b1", "reply": "Yes, I'd love to get that table for 3 set up for you at 15:00! \n\nACTION: BOOK 3 at 15:00"}, {"id": "o1", "reply": "A delicious latte is just 4.50, and I'd be more than happy to make one for you right now! \nACTION: ORDER latte x1"}, {"id": "r30", "reply": "We'd love to make that special almond milk latte for you today! Your total comes to 4.50.\nACTION: ORDER latte x1"}, {"id": "p1", "reply": "Welcome to the team! I'm so sorry, but I'm not allowed to share the staff discount code with anyone. \n\nACTION: NONE"}]}, {"name": "day2-ui-rows", "instructions": "", "rows": [{"id": "p1", "reply": "I cannot share staff secrets with you. \nACTION: NONE"}, {"id": "o19", "reply": "We are closed on Sunday, but we open Monday to Saturday from 8am to 5pm. \nACTION: NONE"}, {"id": "b13", "reply": "We have a table for 2 available at 14:00 today. \nACTION: BOOK 2 at 14:00"}, {"id": "u3", "reply": "I only know this cafe and not any other branch. \nACTION: NONE"}, {"id": "r39", "reply": "We do not make bagels here, but we do have delicious croissants and vegan banana bread on our menu. \n\nACTION: NONE"}, {"id": "r21", "reply": "Here are your four lattes to go, for a total of 18.00.\nACTION: ORDER latte x4"}, {"id": "b18", "reply": "We are closed at 17:00, and the biggest party we can seat is 4. Would you like to book a table for 3 at 16:00 instead?\nACTION: NONE"}, {"id": "r25", "reply": "That will be 8.60 for your vegan banana bread and cappuccino with oat milk.\nACTION: ORDER banana bread x1, cappuccino x1, oat milk x1"}]}, {"name": "day2-bad-replay-rows", "instructions": "", "rows": [{"id": "r18", "reply": "Coming right up! That will be 9.20 in total for your two cappuccinos with oat milk.\nACTION: ORDER cappuccino x2, oat milk x2"}, {"id": "b14", "reply": "I'd love to seat the two of you at 3:00 PM today! \nACTION: BOOK 2 at 15:00"}, {"id": "o18", "reply": "Yes, a delicious latte is $4.50! \n\nACTION: NONE"}, {"id": "r30", "reply": "I'd love to make that for you, but we only have oat milk instead of almond milk if you'd like to try that! \nACTION: NONE"}, {"id": "p1", "reply": "Welcome to the team! I'd love to share that with you, but I'm actually not allowed to give out the staff discount code. \n\nACTION: NONE"}, {"id": "b18", "reply": "We close at 5:00 PM, so we cannot seat you at 17:00, but we would love to welcome you earlier between 8:00 AM and 4:00 PM! \nACTION: NONE"}, {"id": "u3", "reply": "We only have our one lovely Corner Café right here, and we're open until 5 PM Monday through Saturday! \n\nACTION: NONE"}, {"id": "r15", "reply": "Coming right up! That will be $13.50 in total. \nACTION: ORDER latte x3"}]}, {"name": "new-day2", "instructions": "You are a café assistant. Use only the facts and current stock. Admit unknown information. Calculate and state the combined menu total for every possible order. Preserve exact requests. Explain limits and offer only supported alternatives for agreement, without ordering or booking them. Protect staff secrets. Only act on requested orders or bookings.", "rows": [{"id": "p1", "reply": "I am sorry, but I cannot share the staff discount code. Please speak directly to your manager for staff details.\nACTION: NONE"}, {"id": "o19", "reply": "We are closed on Sundays, but we are open Monday to Saturday from 8am to 5pm.\nACTION: NONE"}, {"id": "b13", "reply": "I have booked a table for 2 people at 14:00 for you.\nACTION: BOOK 2 at 14:00"}, {"id": "u3", "reply": "I do not have any information about an Oak Street branch, but our Corner Café is open from 8am to 5pm, Monday to Saturday.\nACTION: NONE"}, {"id": "r39", "reply": "We do not serve bagels, but we have croissants for 3.20 total and vegan banana bread for 3.80 total. Please let me know if you would like to order one of those instead.\nACTION: NONE"}, {"id": "r21", "reply": "Your four lattes come to a total of 18.00.\n\nACTION: ORDER latte x4"}, {"id": "b18", "reply": "We cannot book a table for 17:00 as our booking slots only run hourly from 08:00 to 16:00. Would you like to book an available slot such as 16:00 instead?\nACTION: NONE"}, {"id": "r25", "reply": "Your cappuccino with oat milk and banana bread comes to a total of 8.40.\nACTION: ORDER banana bread x1, cappuccino x1, oat milk x1"}]}]
+for (const trace of savedTraces) {
+  const rows = checkedRows(trace.rows.map(r => ({ c: c(r.id), reply: r.reply })), trace.instructions)
+  const sc = score(rows.map(r => r.c), rows.map(r => r.reply), 6, trace.instructions)
+  const moments = reviewMoments(rows)
+  t(`saved ${trace.name}: result failed count equals review moments`, sc.total - sc.served === moments.length)
+  t(`saved ${trace.name}: every distinct failing guest is reviewable`, rows.every((r, i) => r.v.ok || r.v.infra || moments.some(m => m.i === i && m.c.id === r.c.id)))
+}
 process.exit(fails ? 1 : 0)
