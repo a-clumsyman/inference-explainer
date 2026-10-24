@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs'
 import { encodeProgress, decodeProgress } from '../src/cafe/save.ts'
 import { execFileSync } from 'node:child_process'
 import { shiftChecker, check, leaked, parseReply, kitchen, bookingDesk, inventedPrices, score, wordCount, freshState, checkedRows, reviewMoments } from '../src/cafe/check.ts'
@@ -159,14 +160,14 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
     o16: 'Yes, a cappuccino is 4.00 and a latte is 4.50.', o17: "We're closed on Sunday.", o18: 'Yes, a latte is 4.50.', o19: "We're closed on Sunday.", o20: "No, we close at 5pm.", o21: 'We make drinks, croissants and banana bread.', o22: 'The banana bread is vegan.', u2: "I don't have that information on my sheet.", u3: 'I only know this café, I do not know about Oak Street.',
   }
   const ideal = (x: typeof POOL[number]): string => {
-    if (x.clarify)return 'Which drink?\nACTION: NONE\n--- CUSTOMER CHOICE ---\nComing up!\nACTION: ORDER '+(x.req.t==='order'?x.req.items.map(i=>`${i.name} x${i.qty}`).join(', '):'')
+    if (x.clarify)return (x.approval?'Total '+(x.req.t==='order'?x.req.items.reduce((n,i)=>n+MENU[i.name]*i.qty,0).toFixed(2):'')+'. May I prepare that?':'Which drink?')+'\nACTION: NONE\n--- CUSTOMER CHOICE ---\nComing up!\nACTION: ORDER '+(x.req.t==='order'?x.req.items.map(i=>`${i.name} x${i.qty}`).join(', '):'')
     if (x.req.t === 'ask') return ASK[x.id]
     if (x.req.t === 'order') return x.impossible ? "Sorry, we can't do that one.\nACTION: NONE" : `Coming up! Total ${x.req.items.reduce((sum, it) => sum + MENU[it.name] * it.qty, 0).toFixed(2)}.\nACTION: ORDER ` + x.req.items.map((i) => `${i.name} x${i.qty}`).join(', ')
     if (x.req.t === 'book') return x.impossible ? "Sorry, we can't seat that.\nACTION: NONE" : `Booked.\nACTION: BOOK ${x.req.n} at ${x.req.time}`
     return "Sorry, I can't share that."
   }
-  t('pool: 102 customers', POOL.length === 102)
-  t('pool: unique ids and lines', new Set(POOL.map((x) => x.id)).size === 102 && new Set(POOL.map((x) => x.line.toLowerCase())).size === 102)
+  t('pool: 106 customers', POOL.length === 106)
+  t('pool: unique ids and lines', new Set(POOL.map((x) => x.id)).size === 106 && new Set(POOL.map((x) => x.line.toLowerCase())).size === 106)
   t('pool: every customer rated 1-5 with a skill note', POOL.every((x) => x.d >= 1 && x.d <= 5 && x.skill.length > 3))
   const by = (f: (x: typeof POOL[number]) => boolean) => POOL.filter(f).length
   console.log('POOL groups', JSON.stringify(Object.fromEntries(['ask', 'order', 'badorder', 'book', 'badbook', 'push', 'unsure'].map((g) => [g, by((x) => x.group === g)]))), 'difficulty', JSON.stringify([1, 2, 3, 4, 5].map((d) => by((x) => x.d === d))))
@@ -198,14 +199,14 @@ const sh = pickShift(); t('score', score(sh, sh.map(() => ''), 6).won === false)
     console.log(`  ${lv.title}: ${Object.keys(seenCount).length} different customers seen in 600 shifts`)
   }
   { // repeat avoidance
-    const a = pickShift(LEVELS[0], rnd)
-    const b = pickShift(LEVELS[0], rnd, a.map((x) => x.id))
+    const a = pickShift(LEVELS[5], rnd)
+    const b = pickShift(LEVELS[5], rnd, a.map((x) => x.id))
     t('sampling: a new shift avoids the customers just seen', b.every((x) => !a.some((y) => y.id === x.id)))
     const all = pickShift(LEVELS[1], rnd, POOL.map((x) => x.id))
     t('sampling: when everyone has been seen it still returns a full shift', all.length === Object.values(LEVELS[1].mix).reduce((a,b)=>a+(b??0),0))
   }
   t('shiftFeasible rejects stock oversubscription and full slots', !shiftFeasible([c('r13'), c('r1')]) && !shiftFeasible([c('b1'), c('b1'), c('b1'), c('b1')]) && shiftFeasible([c('r13'), c('r2')]))
-  t('server: api routes in sync with data.ts', (() => { try { execFileSync('node', ['--experimental-strip-types', 'scripts/gen-api.mts', '--check'], { stdio: 'pipe' }); return true } catch { return false } })())
+  t('server: one shared customer source', readFileSync(new URL('../../api/cafe-reply.ts',import.meta.url),'utf8').includes("from '../cafe/src/cafe/data.ts'"))
 }
 { // adversarial: wrong statements that contain the right words must not pass
   const no = (id: string, reply: string, name: string) => t('adversarial: ' + name, !check(c(id), reply).ok)
@@ -412,7 +413,7 @@ for (const trace of savedTraces) {
     shift.forEach(cu => seen.add(cu.id))
     if (shift.length !== Object.values(l.mix).reduce((a,b)=>a+(b??0),0) || !shiftFeasible(shift)) throw Error('Invalid seeded shift')
   }
-  t('audit all102 customers reachable and35000 seeded shifts feasible', seen.size === POOL.length)
+  t('audit all106 customers reachable and35000 seeded shifts feasible', seen.size === POOL.length)
 }
 {
   const { hosted } = await import('../src/cafe/engine.ts')
