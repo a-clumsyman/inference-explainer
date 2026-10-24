@@ -144,3 +144,99 @@ textarea:focus{outline:none;border-color:var(--acc)}
 @keyframes limba{0%,49%{opacity:1}50%,100%{opacity:0}}
 @keyframes limbb{0%,49%{opacity:0}50%,100%{opacity:1}}
 @media (prefers-reduced-motion:reduce){.av.talk .mo,.av.pose-work .hands1,.av.pose-work .hands2,.av.pose-wave .arm1,.av.pose-wave .arm2{animation:none}.av.talk .mo{opacity:0}.av.pose-work .hands2,.av.pose-wave .arm2{opacity:0}}
+
+/* --- redesign: meet, review, shift cards, real sprites --- */
+.meet .meetstage{display:flex;align-items:flex-end;justify-content:center;gap:18px;background:linear-gradient(#e3c08c 55%,#8a5a3a 55%,#8a5a3a 72%,#6b4328 72%);border:3px solid #5a3a24;padding:18px 10px 10px;margin-bottom:10px}
+.meet .meetstage img{height:96px;image-rendering:pixelated}
+.meet h1{margin:8px 0 14px}
+.chip{background:#2f3d33;color:#e8f0e4;border:2px solid #4a6b52;padding:8px 12px;font-size:17px}
+.biscuit .catwrap{position:relative;width:44px;height:60px;flex:0 0 auto}
+.biscuit .catpix{position:absolute;left:0;bottom:0;width:44px;height:auto}
+.biscuit .catpix.blink{animation:catblink 2.4s steps(1) infinite}
+.biscuit .catpix.still{animation:none}
+.biscuit .catpix.blink.still{opacity:0}
+@keyframes catblink{0%,88%{opacity:0}89%,100%{opacity:1}}
+@media (prefers-reduced-motion: reduce){.biscuit .catpix.blink{animation:none;opacity:0}}
+.cards{list-style:none;padding:0;margin:10px 0}
+.sumcard{background:#efe3c3;border:3px solid #b9a77a;color:#3a2a22;padding:6px 10px;margin:6px 0}
+.sumcard summary{cursor:pointer;font-size:16px}
+.sumcard .stamp{float:right;font-family:VT323,monospace;font-size:15px;padding:0 6px}
+.sumcard.ok{border-color:#4a6b52}.sumcard.ok .stamp{background:#4a6b52;color:#f1e7d0}
+.sumcard.no{border-color:#a3483c}.sumcard.no .stamp{background:#a3483c;color:#f1e7d0}
+.sumcard.infra{border-color:#7a7a9a}.sumcard.infra .stamp{background:#7a7a9a;color:#f1e7d0}
+.sumcard.run{opacity:.7;font-style:italic}
+.moment{background:#efe3c3;border:3px solid #b9a77a;color:#3a2a22;padding:8px 12px;margin:10px 0}
+.moment .l1{font-size:17px}
+.moment .l2{font-size:16px;margin-top:4px}
+.moment .l3{font-size:14px;opacity:.85;margin-top:4px}
+.stamp.big{display:inline-block;font-family:VT323,monospace;font-size:18px;padding:2px 10px;margin-top:8px}
+.stamp.big.ok{background:#4a6b52;color:#f1e7d0}
+.stamp.big.no{background:#a3483c;color:#f1e7d0}
+.stamp.big.infra{background:#7a7a9a;color:#f1e7d0}
+.stamp.big.dim{background:#9a9a8a;color:#2a2a22}
+.wordsaid,.suggest{border:3px solid #b9a77a;background:#f4ecd8;color:#3a2a22;padding:8px 12px;margin:10px 0}
+.wordsaid .quote{font-size:17px;margin:6px 0}
+.wordsaid .quote.dim{opacity:.75;font-size:15px}
+.tag.amber{background:#e8a33d;color:#3a2a22;font-size:13px;padding:1px 6px;white-space:nowrap}
+.allwords{white-space:pre-wrap;font-size:15px;background:#efe3c3;padding:6px}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.suggest p{margin:6px 0;font-size:16px}
+.suggest .mono{font-size:15px}
+.suggest .dim{opacity:.7}
+
+/* contrast fixes inside cream review cards */
+.moment .l1,.moment .l2,.moment .l3{color:#3a2a22;opacity:1}
+.moment .l3{opacity:.8}
+.wordsaid,.suggest,.sumcard{color:#3a2a22}
+.suggest .small,.wordsaid .small{color:#4a3a2e}
+.suggest .btn.ghost,.moment .btn.ghost,.wordsaid .btn.ghost{color:#3a2a22;border-color:#8a7a5a;background:transparent}
+.suggest .btn.ghost:disabled{opacity:.45}
+.suggest .btn:not(.ghost){background:#e8a33d;color:#3a2a22}
+.stamp.big{font-size:16px;line-height:1.2;white-space:normal;max-width:100%}
+
+.stamp.big{-webkit-box-decoration-break:clone;box-decoration-break:clone}
+
+/* stamp inside the card, never past the edge */
+.sumcard summary{display:flex;align-items:center;gap:8px}
+.sumcard summary .stamp{float:none;margin-left:auto;font-size:14px;max-width:45%;text-align:center}
+
+/* final stamp polish */
+.sumcard summary{flex-wrap:wrap}
+.sumcard summary .stamp{flex:0 0 auto;white-space:normal;line-height:1.15}
+.stamp.big{white-space:nowrap}
+
+/* stacked card layout: title line, stamp line - cannot clip */
+.sumcard summary{display:block}
+.sumcard summary .t{display:block}
+.sumcard summary .stamp{display:inline-block;float:none;margin:3px 0 0;max-width:none;font-size:13px;line-height:1.2}
+
+.sumcard .stamp{width:auto;height:auto;line-height:1.2;padding:2px 8px;border:none}
+
+/* corrective pass: one-screen review, no clipped badges */
+.stamp.big{width:auto;height:auto;line-height:1.2;text-align:left}
+.clamp2,.clamp3{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
+.clamp2{-webkit-line-clamp:2}
+.clamp3{-webkit-line-clamp:3}
+.moment{margin:6px 0}
+.wordsaid,.suggest{margin:6px 0;padding:6px 10px}
+.revhead{display:flex;gap:10px;align-items:center;margin:2px 0 4px}
+.revhead .catwrap{position:relative;width:72px;height:96px;flex:0 0 auto}
+.revhead .catpix{position:absolute;left:0;bottom:0;width:72px;height:auto;image-rendering:pixelated}
+.revhead .catpix.blink{animation:catblink 2.4s steps(1) infinite}
+.revhead .catpix.still{animation:none}
+.revhead .catpix.blink.still{opacity:0}
+.revhead h1{margin:0;font-size:22px}
+.revhead .grow{flex:1;min-width:0}
+.btnrow.col{flex-direction:column;align-items:stretch}
+@media (prefers-reduced-motion: reduce){.revhead .catpix.blink{animation:none;opacity:0}}
+
+.revhead .mini{color:#e8dcc0;border-color:#8a7a5a}
+.revhead .catwrap{width:64px;height:84px}
+.revhead .catpix{width:64px}
+.revhead h1{font-size:20px}
+
+/* sticky review action bar: controls always reachable, content scrolls */
+.reviewbar{position:sticky;bottom:0;z-index:5;background:var(--card);border-top:3px solid var(--line);margin:10px -18px -18px;padding:8px 18px 6px}
+.reviewbar .rb-row{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0}
+.reviewbar .btn{width:auto;flex:1 1 auto;margin:0;padding:8px 10px;font-size:13px;box-shadow:3px 3px 0 #0e0c13}
+.reviewbar p{margin:4px 0 0}
