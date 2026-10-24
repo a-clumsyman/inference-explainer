@@ -185,11 +185,11 @@ const DENY: Record<string, string> = {
   o7: near('oat milk', '4\\.50|4\\.00|3\\.20|3\\.80'), o8: near('(banana bread|banana)', '4\\.50|4\\.00|3\\.20|0?\\.60'),
   o2: "(not|isn.t|aren.t|never)\\s+(be\\s+)?closed|\\bopen\\s+(on\\s+)?sundays?\\b(?!.{0,10}(not|no))", o19: "(not|isn.t|aren.t|never)\\s+(be\\s+)?closed|opens?\\s+(at|from)\\s+\\d", o17: "(not|isn.t|aren.t|never)\\s+closed|closed\\s+(on\\s+)?(mon|tues|wednes|thurs|fri|satur)",
   o5: "clos\\w*[^.?!\\n]{0,20}\\b(4|6|7|8|9)\\s?(pm|:00)", o9: "open\\w*[^.?!\\n]{0,15}\\b(7|9|10|11)\\b", o10: "(open\\w*|from)[^.?!\\n]{0,15}\\b(7|9|10|11)\\s?(am|:)|closes?[^.?!\\n]{0,15}\\b(4|6|7)\\s?pm",
-  o11: "\\b(yes|we (do )?(have|make|sell|serve)\\b)", o12: "(not|isn.t)\\s+(a\\s+)?vegan|^\\s*no\\b", o13: "(up to|biggest|largest|max\\w*|seats?)\\D{0,20}\\b(3|5|6|8|10|12|five|six|eight|ten)\\b",
-  o14: "(not|isn.t)\\s+(fully\\s+)?booked|\\bis\\s+(free|available|open)\\b", o15: "\\byes\\b|we (do )?(have|sell|make)\\s+(some\\s+)?muffins|muffins?\\s+(are|is)\\s+(available|on the menu)",
+  o11: "\\byes\\b|we (do )?(have|make|sell|serve)[^.!?;]{0,25}chocolate", o12: "(not|isn.t)\\s+(a\\s+)?vegan|^\\s*no\\b", o13: "(up to|biggest|largest|max\\w*|seats?)\\D{0,20}\\b(3|5|6|8|10|12|five|six|eight|ten)\\b",
+  o14: "(not|isn.t)\\s+(fully\\s+)?booked|(12:00|noon)[^.!?;]{0,18}\\bis\\s+(free|available|open)\\b", o15: "\\byes\\b|we (do )?(have|sell|make)\\s+(some\\s+)?muffins|muffins?\\s+(are|is)\\s+(available|on the menu)",
   o16: "^\\s*no\\b|not cheaper|more expensive than (a )?latte|" + near('latte', '4\\.00|3\\.20|3\\.80') + "|" + near('cappuccino', '4\\.50|3\\.20|3\\.80'),
   o18: "^\\s*no\\b|" + near('latte', '4\\.00|3\\.20|3\\.80'), o20: "\\byes\\b|open\\s+(until|till|late|at)\\s+(6|7|8|9)",
-  o21: "we (also )?(have|serve|sell|offer)[^.?!\\n]{0,30}(sandwich|muffin|cake|cookie|salad|bagel)", o22: "croissants?[^.?!\\n]{0,20}\\bvegan|(all|everything)[^.?!\\n]{0,20}vegan",
+  o21: "we (also )?(have|serve|sell|offer)[^.?!\\n]{0,30}(sandwich|muffin|cake|cookie|salad|bagel)", o22: "croissants?\\s+(are|is)\\s+(a\\s+)?vegan|(all|everything)[^.?!\\n]{0,20}vegan",
 }
 // The two "not on the sheet" customers: the right move is to say it is not on the sheet, without inventing facts.
 const UNSURE: Record<string, { expect: string; want: string; deny: string }> = {
