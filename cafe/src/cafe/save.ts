@@ -49,7 +49,12 @@ export function decodeProgress(text: string | null): Progress | null {
       if (rs.length === shift.length) { runs.push({ instructions: rs.at(-1)?.instructions ?? j.instr, customers: shift, planned: shift.length, rows: rs }); partial = null; screen = 'result' }
       else { partial = { shift, rows: rs, instructions: rs.at(-1)?.instructions ?? j.instr }; screen = 'write' }
     }
+    // Older saves may already have turned an interrupted completed shift into a
+    // full partial on the write screen. Finish it rather than offering guest 9/8.
+    if (partial && partial.rows.length === partial.shift.length) {
+      runs.push({ instructions: partial.instructions, customers: partial.shift, planned: partial.shift.length, rows: partial.rows }); partial = null; screen = 'result'
+    }
     if ((screen === 'result' || screen === 'review') && !runs.length) screen = 'write'
     return { instr: j.instr || STARTER, lvl: j.lvl, screen, shift, rows: rs, runs, partial }
   } catch { return null }
-}
+        }
