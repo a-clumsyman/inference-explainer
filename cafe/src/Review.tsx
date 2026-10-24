@@ -49,7 +49,7 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
       <section className="card">
         <Biscuit spot="review" hasBad={false} />
         <h1>Review with Biscuit</h1>
-        <p>Every customer was handled this shift. The checks are narrow, so read the replies yourself too.</p>
+        <p>No scored failures to review. System stumbles and unsure wording are listed in the result, not blamed on your instructions.</p>
         <button className="btn" onClick={onDone}>Back to the result</button>
       </section>
     )
