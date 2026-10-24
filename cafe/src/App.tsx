@@ -9,8 +9,10 @@ import { CheckPage } from './Check.tsx'
 import { Biscuit } from './Biscuit.tsx'
 import { Review, type Run } from './Review.tsx'
 import { gameOver, passMarkFor } from './cafe/gameover.ts'
+import { Story } from './Story.tsx'
+import { click, ding, chaChing, bookChime, buzz, fanfare, sad, startMusic, muted as soundMuted, setMuted } from './cafe/sound.ts'
 
-type Screen = 'meet' | 'loading' | 'write' | 'shift' | 'review' | 'result'
+type Screen = 'story' | 'meet' | 'loading' | 'write' | 'shift' | 'review' | 'result'
 interface Row { c: Customer; reply: string; v: Verdict }
 
 const params = new URLSearchParams(location.search)
@@ -20,7 +22,8 @@ const USE_LOCAL = params.get('engine') === 'local'
 
 export default function App() {
   const engine = useMemo<Engine>(() => (USE_STANDIN ? standIn() : USE_LOCAL ? localQwen() : hosted()), [])
-  const [screen, setScreen] = useState<Screen>('meet')
+  const [screen, setScreen] = useState<Screen>(USE_STANDIN ? 'meet' : 'story')
+  const [isMuted, setIsMuted] = useState(soundMuted())
   const [pct, setPct] = useState(0)
   const [note, setNote] = useState('')
   const [err, setErr] = useState('')
@@ -43,6 +46,7 @@ export default function App() {
   const over = words > MAX_WORDS
 
   async function start() {
+    startMusic()
     setScreen('loading'); setErr('')
     try {
       if (USE_LOCAL && !('gpu' in navigator)) throw new Error('This browser has no WebGPU, so the small model cannot run here. Try desktop Chrome or Edge.')
@@ -71,8 +75,10 @@ export default function App() {
         const reply = await (engine.replyFor ? engine.replyFor(text, c.id) : engine.reply(text, c.line))
         acc.push({ c, reply, v: chk(c, reply) })
         setRows([...acc])
+        { const v = acc[acc.length - 1].v; if (!v.ok) buzz(); else if (v.action.t === 'order') chaChing(); else if (v.action.t === 'book') bookChime(); else ding() }
         if (gameOver(simulate(acc.map((r) => r.c), acc.map((r) => r.reply)), (level.n ?? 1) - 1).over) break
       }
+      if (gameOver(simulate(acc.map((r) => r.c), acc.map((r) => r.reply)), (level.n ?? 1) - 1).over) sad(); else fanfare()
       seenIds.push(...acc.map((r) => r.c.id)); setRuns((r) => [...r, { instructions: text, rows: acc, planned: s.length }])
       setPartial(null)
       setScreen('result')
@@ -112,7 +118,12 @@ export default function App() {
       <header className="top">
         <span className="logo">CORNER CAFÉ</span>
         <span className="tag">{engine.standIn ? 'STAND-IN, NOT A MODEL' : USE_LOCAL ? 'real AI, small and local' : 'real AI, hosted'}</span>
+        <button type="button" className="soundbtn" aria-label={isMuted ? 'Turn sound on' : 'Turn sound off'} onClick={() => { const m = !isMuted; setMuted(m); setIsMuted(m); if (!m) click() }}>{isMuted ? '\u{1F507}' : '\u{1F50A}'}</button>
       </header>
+
+      {screen === 'story' && (
+        <Story startLabel="Start" onStart={() => { click(); startMusic(); setScreen('meet') }} />
+      )}
 
       {screen === 'meet' && (
         <section className="card meet">
@@ -319,4 +330,4 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-}
+        }
