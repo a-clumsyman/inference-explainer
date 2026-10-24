@@ -158,20 +158,21 @@ export default async function handler(req: any, res: any) {
   if (cors(req, res)) return
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   const { instructions, evidence } = req.body ?? {}
-  if (typeof instructions !== 'string' || !instructions.trim() || instructions.length > 600 || !Array.isArray(evidence) || evidence.length === 0 || evidence.length > 8) return res.status(400).json({ error: 'bad request' })
+  if (typeof instructions !== 'string' || !instructions.trim() || instructions.length > 2400 || !Array.isArray(evidence) || evidence.length === 0 || evidence.length > 8) return res.status(400).json({ error: 'bad request' })
   // Rebuild every verdict from known customers and the actual trace. The model never
   // supplies expected totals, current stock, action mismatches, or supported capabilities.
   const ev = evidence.flatMap((raw: any) => {
     const history = Array.isArray(raw?.history) ? raw.history : [{ customerId: raw?.customerId, reply: raw?.reply }]
     if (!history.length || history.length > 8) return []
     const chk = shiftChecker(instructions)
-    const rows = [] as { c: (typeof POOL)[number]; reply: string; v: ReturnType<typeof chk> }[]
+    const rows = [] as { c: (typeof POOL)[number]; reply: string; v: ReturnType<typeof chk>; instructions?: string }[]
     for (const item of history) {
       const c = POOL.find((p) => p.id === item?.customerId)
       if (!c || typeof item?.reply !== 'string' || item.reply.length > 1600) return []
-      rows.push({ c, reply: item.reply, v: chk(c, item.reply) })
+      const rowInstructions = typeof item.instructions === 'string' && item.instructions.length <= 2400 ? item.instructions : instructions
+      rows.push({ c, reply: item.reply, v: chk(c, item.reply, rowInstructions), instructions: rowInstructions })
     }
-    const sim = simulate(rows.map((r) => r.c), rows.map((r) => r.reply), instructions)
+    const sim = simulate(rows.map((r) => r.c), rows.map((r) => r.reply), instructions, false, rows.map(r => r.instructions))
     return buildEvidence(rows, sim.ledgers).filter((e) => e.customerId === raw?.customerId).map(({ history: _trace, ...e }) => e)
   })
   if (!ev.length || ev.length !== evidence.length || new Set(ev.map((e) => e.customerId)).size !== ev.length) return res.status(400).json({ error: 'Could not verify moment evidence.' })
@@ -212,6 +213,7 @@ export default async function handler(req: any, res: any) {
   const user = `Player's instructions:\n"""\n${instr}\n"""\n\nCustomers with problems (JSON):\n${JSON.stringify(ev)}`
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
     method: 'POST',
+    signal: AbortSignal.timeout(55000),
     headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
