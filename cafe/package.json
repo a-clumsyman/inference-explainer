@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": { "dev": "vite", "build": "tsc -b && vite build", "preview": "vite preview", "test": "node --experimental-strip-types scripts/test.mts && node --experimental-strip-types scripts/lessons-test.mts" },
+  "scripts": { "dev": "vite", "build": "tsc -b && vite build", "preview": "vite preview", "test": "node --experimental-strip-types scripts/test.mts && node --experimental-strip-types scripts/campaign-test.mts" },
   "dependencies": {
     "@fontsource/silkscreen": "^5.3.0",
     "@fontsource/vt323": "^5.3.0",
