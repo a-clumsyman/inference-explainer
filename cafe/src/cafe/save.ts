@@ -45,8 +45,11 @@ export function decodeProgress(text: string | null): Progress | null {
     if (j.partial) { const cs = customers(j.partial.ids); if (typeof j.partial.instructions !== 'string' || j.partial.instructions.length > 2400) throw Error('bad partial'); partial = { shift: cs, instructions: j.partial.instructions, rows: rows(j.partial.rows, j.partial.instructions, cs) } }
     const rs = rows(j.rows, j.instr, shift)
     let screen = ['write', 'review', 'result', 'story', 'meet'].includes(j.screen) ? j.screen : 'write'
-    if (j.screen === 'shift') { partial = { shift, rows: rs, instructions: rs.at(-1)?.instructions ?? j.instr }; screen = 'write' }
+    if (j.screen === 'shift') {
+      if (rs.length === shift.length) { runs.push({ instructions: rs.at(-1)?.instructions ?? j.instr, customers: shift, planned: shift.length, rows: rs }); partial = null; screen = 'result' }
+      else { partial = { shift, rows: rs, instructions: rs.at(-1)?.instructions ?? j.instr }; screen = 'write' }
+    }
     if ((screen === 'result' || screen === 'review') && !runs.length) screen = 'write'
     return { instr: j.instr || STARTER, lvl: j.lvl, screen, shift, rows: rs, runs, partial }
   } catch { return null }
-                                                                                                                                                                                                                                                      }
+}
