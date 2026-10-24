@@ -23,7 +23,7 @@ export const OPEN_SLOTS = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00',
 export const SYSTEM_SUFFIX = 'Reply to the customer in one or two short sentences.'
 
 /** Cafe plumbing: the game ALWAYS adds this to the prompt itself. It is never the player's job to write or know it. */
-export const CONTRACT = 'The cafe system reads only the last line of your reply to run the kitchen and the booking desk. Always end your reply with exactly one of these lines: ACTION: ORDER <item> x<number>, <item> x<number>  or  ACTION: BOOK <people> at <HH:MM>  or  ACTION: NONE (when nothing should be sent).'
+export const CONTRACT = 'The cafe system reads only the last line of your reply to execute an action. Always end with exactly one of: ACTION: ORDER <menu item> x<positive integer>, <menu item> x<positive integer> or ACTION: BOOK <people> at <HH:MM> or ACTION: NONE. ORDER and BOOK execute now, they are not offers or questions. Submit only the exact order or booking the customer has requested and you are confirming. If you are asking permission for a different item, quantity, party size or time, use NONE until the customer agrees. Never silently substitute or execute an offered alternative. An answer-only question, refusal or clarification uses NONE. Use canonical menu item names (banana bread, not vegan banana bread); include every requested extra as its own item, with quantities. The kitchen accepts all items together or rejects the whole ticket. BOOK reserves one table only; there is no split-table or joined-table action. Never put prices, commentary or multiple actions on this final line.'
 
 export const STARTER = 'You are a helpful café assistant. Answer customers.'
 
