@@ -1,3 +1,4 @@
+import { lessonCustomer, lessonFacts, type LessonStage } from './lessons.ts'
 import { FACTS, SYSTEM_SUFFIX, CONTRACT, POOL } from './data.ts'
 
 // When the game is iframed/served from clumsyman.xyz, the API lives on the origin that hosts the functions.
@@ -116,4 +117,26 @@ export function hosted(): Engine {
     },
   }
   return e
-  }
+}
+
+/** Finite curriculum context; the server derives customer text and facts itself. */
+export async function lessonReply(engine:Engine,instructions:string,day:number,stage:LessonStage,continued=false):Promise<string>{
+ const c=lessonCustomer(day,stage,continued)
+ if(engine.standIn){
+  if(day===2&&!continued)return 'Which drink would you like?\nACTION: NONE'
+  if(day===6&&!continued)return /approv|permission|confirm/i.test(instructions)?'May I book that table?\nACTION: NONE':'Booked!\nACTION: BOOK 3 at 15:00'
+  if(day===1)return stage==='fresh'?'We close at 4pm today.\nACTION: NONE':'We open at 9am today.\nACTION: NONE'
+  const reply=c.req.t==='order'?('Coming up!\nACTION: ORDER '+c.req.items.map(i=>`${i.name} x${i.qty}`).join(', ')):c.req.t==='book'?`Booked.\nACTION: BOOK ${c.req.n} at ${c.req.time}`:await engine.reply(instructions,c.line)
+  return (day===0||day===4)&&/name/i.test(instructions)?`${stage==='fresh'?'Noor':'Mira'}, ${reply}`:reply
+ }
+ if(engine.id!=='hosted')return engine.reply(instructions+`\n\nLesson facts: ${lessonFacts(day,stage).join(' ')}`,c.line)
+ for(let attempt=0;;attempt++){
+  const r=await fetch(API_BASE+'/api/cafe-reply',{signal:AbortSignal.timeout(65000),method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({instructions,lesson:{day,stage,continued}})})
+  const j=await r.json().catch(()=>({}))
+  if(r.status===429&&j.kind!=='daily'&&attempt<2){await new Promise(resolve=>setTimeout(resolve,7000));continue}
+  if(r.status===429)throw Error(j.kind==='daily'?'The free daily allowance is used up. Your lesson is saved. Nothing paid is used.':'The free service is rate limiting. Your lesson is saved; try later. Nothing paid is used.')
+  if(!r.ok)throw Error(j.error||'The free AI could not reply.')
+  if(typeof j.reply!=='string'||!j.reply.trim())throw Error('The AI returned no usable reply. Try again; this is not a scored attempt.')
+  return j.reply
+ }
+}
