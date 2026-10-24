@@ -231,7 +231,7 @@ export default function App() {
             {rows.slice(0, served).map((r) => {
               const short = r.v.system.split(' Till:')[0]
               const kind = r.v.action.t === 'book' ? 'booking' : r.v.action.t === 'order' ? 'order' : 'answer'
-              const stamp = r.v.outcome === 'handled' ? (r.v.action.t === 'book' ? 'BOOKED' : r.v.action.t === 'order' ? 'SERVED' : 'ANSWERED') : r.v.outcome === 'ticket_unreadable' ? 'UNREADABLE TICKET' : r.v.outcome === 'na' ? 'NOT ASSESSED' : 'NEEDS A LOOK'
+              const stamp = r.v.honest === false ? 'PRICE MISMATCH' : r.v.outcome === 'handled' ? (r.v.action.t === 'book' ? 'BOOKED' : r.v.action.t === 'order' ? 'SERVED' : 'ANSWERED') : r.v.outcome === 'ticket_unreadable' ? 'UNREADABLE TICKET' : r.v.outcome === 'na' ? 'NOT ASSESSED' : 'NEEDS A LOOK'
               return (
                 <li key={r.c.id} className={'sumcard ' + (r.v.ok ? 'ok' : r.v.infra ? 'infra' : 'no')}>
                   <details>
@@ -372,4 +372,4 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-}
+            }
