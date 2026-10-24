@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FACTS, MAX_WORDS, STARTER, CONTRACT, LEVELS, SECRET_CODE, pickShift, POOL, type Customer, type Level } from './cafe/data.ts'
-import { shiftChecker, check, score, wordCount, describeAction, parseReply, type Verdict } from './cafe/check.ts'
+import { shiftChecker, checkedRows, reviewMoments, check, score, wordCount, describeAction, parseReply, type Verdict } from './cafe/check.ts'
 import { hosted, localQwen, standIn, type Engine } from './cafe/engine.ts'
 import { Scene, usePlayer, AvatarBox, lookFor, BARISTA } from './cafe/Scene.tsx'
 import { WAITER, customerSprite } from './cafe/sprites.ts'
@@ -38,7 +38,7 @@ export default function App() {
   const [finishedRun, setFinishedRun] = useState<Run | null>(null)
   const seenIds = useRef<string[]>([]).current
   const cancel = useRef(false)
-  const live = useMemo(() => simulate(shift.slice(0, rows.length), rows.map((r) => r.reply)), [shift, rows])
+  const live = useMemo(() => simulate(shift.slice(0, rows.length), rows.map((r) => r.reply), partial?.instructions ?? instr), [shift, rows, instr, partial])
   const player = usePlayer(live.events, 0)
   // customers whose whole moment has played out on screen; the transcript only shows these,
   // so scene, cards and meter move together, one customer at a time
@@ -64,7 +64,7 @@ export default function App() {
   const [runId, setRunId] = useState(0)
   useEffect(() => {
     const k = startAt.current
-    const n = simulate(shift.slice(0, k), rows.slice(0, k).map((r) => r.reply)).events.length
+    const n = simulate(shift.slice(0, k), rows.slice(0, k).map((r) => r.reply), instr).events.length
     player.setIdx(n)
     sounded.current = n
   }, [runId])
@@ -91,8 +91,8 @@ export default function App() {
     setFinishedRun(null); player.resume()
     setRunId((x) => x + 1)
     setShift(s); setRows([...doneRows]); setScreen('shift'); setBusy(true)
-    const acc: Row[] = [...doneRows]
-    const chk = shiftChecker()
+    const acc: Row[] = checkedRows(doneRows, text)
+    const chk = shiftChecker(text)
     // rebuild the kitchen/desk state from the customers already served, so the checker continues where the shift stopped. No customer is re-sent to the AI.
     for (const r of doneRows) chk(r.c, r.reply)
     try {
@@ -106,7 +106,7 @@ export default function App() {
         const reply = await (engine.replyFor ? engine.replyFor(text, c.id, false, acc.length ? { stock: acc[acc.length - 1].v.stockAfter, booked: acc[acc.length - 1].v.bookedAfter } : undefined) : engine.reply(text, c.line))
         acc.push({ c, reply, v: chk(c, reply) })
         setRows([...acc])
-        if (gameOver(simulate(acc.map((r) => r.c), acc.map((r) => r.reply)), (level.n ?? 1) - 1).over) break
+        if (gameOver(simulate(acc.map((r) => r.c), acc.map((r) => r.reply), text), (level.n ?? 1) - 1).over) break
       }
       seenIds.push(...acc.map((r) => r.c.id))
       setPartial(null)
@@ -231,7 +231,7 @@ export default function App() {
             {rows.slice(0, served).map((r) => {
               const short = r.v.system.split(' Till:')[0]
               const kind = r.v.action.t === 'book' ? 'booking' : r.v.action.t === 'order' ? 'order' : 'answer'
-              const stamp = r.v.honest === false ? 'PRICE MISMATCH' : r.v.outcome === 'handled' ? (r.v.action.t === 'book' ? 'BOOKED' : r.v.action.t === 'order' ? 'SERVED' : 'ANSWERED') : r.v.outcome === 'ticket_unreadable' ? 'UNREADABLE TICKET' : r.v.outcome === 'na' ? 'NOT ASSESSED' : 'NEEDS A LOOK'
+              const stamp = r.v.priceIssue ? (r.v.priceIssue === 'missing_total' ? 'NO TOTAL GIVEN' : r.v.priceIssue === 'wrong_total' ? 'PRICE MISMATCH' : 'INCORRECT PRICE') : r.v.outcome === 'handled' ? (r.v.action.t === 'book' ? 'BOOKED' : r.v.action.t === 'order' ? 'SERVED' : 'ANSWERED') : r.v.outcome === 'ticket_unreadable' ? 'UNREADABLE TICKET' : r.v.outcome === 'na' ? 'NOT ASSESSED' : 'NEEDS A LOOK'
               return (
                 <li key={r.c.id} className={'sumcard ' + (r.v.ok ? 'ok' : r.v.infra ? 'infra' : 'no')}>
                   <details>
@@ -240,7 +240,7 @@ export default function App() {
                     <div className="l2">AI said: {r.v.spoken || '(no reply)'}</div>
                     <div className="l3">{short}</div>
                     <details className="fold"><summary>Play-by-play</summary>
-                      <ul className="ledger">{simulate([r.c], [r.reply]).events.filter((e) => e.kind !== 'mood').map((e, k) => <li key={k}>{e.text}</li>)}</ul>
+                      <ul className="ledger">{simulate([r.c], [r.reply], instr).events.filter((e) => e.kind !== 'mood').map((e, k) => <li key={k}>{e.text}</li>)}</ul>
                     </details>
                   </details>
                 </li>
@@ -255,7 +255,7 @@ export default function App() {
       {screen === 'review' && runs.length > 0 && (
         <Review
           run={runs[runs.length - 1]}
-          sim={simulate(runs[runs.length - 1].rows.map((r) => r.c), runs[runs.length - 1].rows.map((r) => r.reply))}
+          sim={simulate(runs[runs.length - 1].rows.map((r) => r.c), runs[runs.length - 1].rows.map((r) => r.reply), runs[runs.length - 1].instructions)}
           instr={instr}
           standIn={!!engine.standIn}
           busy={busy}
@@ -277,9 +277,9 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
   const run = runs[runs.length - 1]
   const passMark = passMarkFor(run.planned)
   const prev = runs.length > 1 ? runs[runs.length - 2] : null
-  const sc = score(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), passMark)
-  const psc = prev ? score(prev.rows.map((r) => r.c), prev.rows.map((r) => r.reply), passMark) : null
-  const sim = useMemo(() => simulate(run.rows.map((r) => r.c), run.rows.map((r) => r.reply)), [run])
+  const sc = score(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), passMark, run.instructions)
+  const psc = prev ? score(prev.rows.map((r) => r.c), prev.rows.map((r) => r.reply), passMark, prev.instructions) : null
+  const sim = useMemo(() => simulate(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), run.instructions), [run])
   const pl = usePlayer(sim.events, sim.events.length)
   const shiftC = run.rows.map((r) => r.c)
   const ru = runAt(sim.events, pl.idx)
@@ -291,12 +291,12 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
     try {
       const last = run.rows[run.rows.length - 1].v
       const reply = await (engine.replyFor ? engine.replyFor(run.instructions, target.c.id, true, { stock: last.stockAfter, booked: last.bookedAfter }) : engine.reply(run.instructions, target.c.line + ' That did not work. Sort this out now.'))
-      const v = check(target.c, reply, { stock: { ...last.stockAfter }, booked: { ...last.bookedAfter } })
+      const v = check(target.c, reply, { stock: { ...last.stockAfter }, booked: { ...last.bookedAfter } }, run.instructions)
       setEsc({ busy: false, reply: v.spoken || reply, ok: v.ok, sent: describeAction(reply), nothing: parseReply(reply).action.t === 'missing' })
     } catch (e) { const m = String((e as Error).message ?? e); setEsc({ busy: false, err: m.startsWith('PAUSED:') ? m : `The free AI stumbled (the service said: "${m}"). Try again in a moment.` }) }
   }
   const go = useMemo(() => gameOver(sim, (level.n ?? 1) - 1), [sim, level])
-  const badCount = run.rows.filter((r) => (!r.v.ok || r.v.contradiction || r.v.refused || r.v.honest === false)).length
+  const badCount = reviewMoments(checkedRows(run.rows, run.instructions)).length
   return (
     <section className="card">
       <h1 className={sc.won ? 'win' : 'lose'}>{go.over ? 'Shift closed early' : sc.won ? 'Shift survived' : 'Below the pass mark'} <small>{level.title}</small></h1>
@@ -306,7 +306,7 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
       {!go.over && go.warn && <p className="warnline">Warning: {go.reason} From Day 2 this closes the shift.</p>}
       <div className="btnrow">
         {badCount > 0
-          ? <button className="btn" onClick={onReview}>Review with Biscuit</button>
+          ? <button className="btn" onClick={onReview}>Review with Biscuit ({badCount})</button>
           : sc.won && hasNext
             ? <button className="btn" onClick={onNext}>Start the next day</button>
             : <button className="btn" onClick={onSame}>Play this day again</button>}
@@ -372,4 +372,4 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-    }
+}
