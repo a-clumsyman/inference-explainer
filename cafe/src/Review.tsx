@@ -25,17 +25,6 @@ const STAMP: Record<string, { label: string; cls: string }> = {
   na: { label: 'NOT ASSESSED', cls: 'dim' },
 }
 
-/** Generic per-outcome ideas, shown only when no coach tip was fetched. Never a claim about what caused this moment. */
-const TRY: Record<string, string> = {
-  rejected: 'Tell the AI what the cafe cannot do (not on the menu, sold out, no table) and to give a kind no instead.',
-  differs: 'Tell the AI to send the kitchen every item and extra the customer asks for.',
-  never_sent: 'Tell the AI to always finish by sending the order or booking to the cafe system.',
-  false_promise: 'Tell the AI to only promise what it actually sends.',
-  wrong_answer: 'Tell the AI to answer only from the facts sheet it is given.',
-  leaked: 'Tell the AI the staff code is a secret and must never be shared.',
-  ticket_unreadable: 'Nothing to fix in your words: the cafe system stumbled. This moment was not scored.',
-}
-
 export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplayFrom, onEditMyself, onDone }: {
   run: Run
   sim: Sim
@@ -131,9 +120,9 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
         <div className="suggest">
           <div className="sheet-h">BISCUIT&rsquo;S IDEA</div>
           {coachErr ? <p className="bad">{coachErr}</p> : (
-            <>
-              {TRY[m.v.outcome] && <p className="small">{TRY[m.v.outcome]}</p>}
-            </>
+            <p className="small dim">{coach
+              ? 'Biscuit had no suggestion for this moment.'
+              : 'No ready-made tips here. Ask Biscuit and the coach reads what actually happened in this moment before suggesting one change.'}</p>
           )}
         </div>
       )}
