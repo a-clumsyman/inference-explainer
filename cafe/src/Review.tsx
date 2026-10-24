@@ -65,7 +65,12 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
 
   async function askBiscuit() {
     setCoachBusy(true); setCoachErr('')
-    try { const r = await askCoach(instr, buildEvidence(run.rows, sim.ledgers), standIn); setCoach(r); meow() }
+    try {
+      const evidence = buildEvidence(run.rows, sim.ledgers).filter((e) => e.customerId === m.c.id)
+      const r = await askCoach(instr, evidence, standIn)
+      setCoach((prev) => ({ ...r, tips: [...(prev?.tips.filter((t) => t.customerId !== m.c.id) ?? []), ...r.tips] }))
+      meow()
+    }
     catch (e) { setCoachErr(e instanceof CoachPaused ? e.message : 'Suggestions are not available right now: ' + String((e as Error).message ?? e)) }
     finally { setCoachBusy(false) }
   }
@@ -152,4 +157,4 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
       </div>
     </section>
   )
-}
+      }
