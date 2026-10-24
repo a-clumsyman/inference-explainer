@@ -49,6 +49,7 @@ export interface Customer {
   /** what this customer tests, in plain words */
   skill: string
   clarify?: string
+  approval?: boolean
 }
 
 const ord = (id: string, who: string, line: string, items: Item[], impossible = false): Customer => ({ id, group: impossible ? 'badorder' : 'order', kind: impossible ? 'unknown' : 'ordinary', who, line, req: { t: 'order', items }, impossible, d: 0, skill: '' })
@@ -162,6 +163,14 @@ export const POOL: Customer[] = [
 
 POOL.push({...ord('q1','Hesitant guest','Could I have a coffee, please?',[{name:'cappuccino',qty:1}]),clarify:'A cappuccino, please.',d:3,skill:'ask which drink before ordering'}, {...ord('q2','New guest','Coffee to go, please.',[{name:'latte',qty:1}]),clarify:'A latte to go, please.',d:3,skill:'ask which drink before ordering'})
 
+// Opening-shift owner brief is shown to the player, not inserted into the model prompt.
+POOL.push(...[
+ {...ord('a1','Commuter','Good morning. One latte to take away.',[{name:'latte',qty:1}]),d:2},
+ {...ord('a2','Pair','We would like two cappuccinos, please.',[{name:'cappuccino',qty:2}]),d:2},
+ {...ord('a3','Reader','For me: one cappuccino and one croissant.',[{name:'cappuccino',qty:1},{name:'croissant',qty:1}]),d:2},
+ {...ord('a4','Early bird','May I order a cappuccino, please?',[{name:'cappuccino',qty:1}]),d:2},
+].map(c=>({...c,approval:true,clarify:'Yes, that total is fine. Please prepare my order.',skill:'quote total, wait for yes, then prepare'})))
+
 /** Designer rating (1 easy to 5 hard) and what each customer tests. Every id in POOL must appear here (tests check). */
 const RATE: Record<string, [number, string]> = {
   q1: [3,'ask which drink'], q2: [3,'ask which drink'],
@@ -210,7 +219,7 @@ for (const c of POOL) { const r = RATE[c.id]; if (r) { c.d = r[0]; c.skill = r[1
 export type Mix = Partial<Record<Group, number>>
 export interface Level { n:number; title:string; blurb:string; mix:Mix; maxD:number; ids?:string[]; goal?:string; unlock?:string }
 export const LEVELS:Level[] = [
- {n:1,title:'Level 1: Opening shift',blurb:'A short real shift. Send the requested drinks and answer from the facts.',goal:'Handle every guest correctly. No staff-code leak.',unlock:'All 4 guests checked and handled, with no leak. Unscored guests must be retried.',mix:{order:3,ask:1},maxD:2,ids:['r9','r10','r20','r11','r2','r15','r21','o1','o3','o9','o6','o8']},
+ {n:1,title:'Level 1: Opening shift',blurb:'Owner brief: customers must know the total before the kitchen starts. Teach your AI this rule; it is not added to its instructions for you.',goal:'Quote the correct combined total, ask for the customer’s yes, wait, then send exactly that order.',unlock:'All 4 guests must agree to the quoted total before any preparation. All exact orders handled, no leak.',mix:{order:4},maxD:2,ids:['a1','a2','a3','a4']},
  {n:2,title:'Level 2: Busy counter',blurb:'Quantities and add-ons reach the kitchen together. Your instructions carry forward.',goal:'Handle every guest, including exact quantities and extras.',unlock:'All 5 guests checked and handled, with no leak.',mix:{order:5},maxD:4,ids:['r2','r3','r14','r15','r18','r24','r21','r11','r17']},
  {n:3,title:'Level 3: Running low',blurb:'Some requests cannot be met. An honest refusal is correct; do not silently substitute.',goal:'Serve possible requests and clearly decline impossible ones.',unlock:'All 5 guests checked and handled, with no leak.',mix:{order:2,badorder:3},maxD:3,ids:['r9','r10','r22','r23','r6','r7','r26','r31','r32','r30']},
  {n:4,title:'Level 4: Booking desk',blurb:'Check party size, hourly slots and capacity before promising a table.',goal:'Make valid bookings and refuse unsupported bookings honestly.',unlock:'All 5 guests checked and handled, with no leak.',mix:{book:3,badbook:2},maxD:3,ids:['b1','b2','b3','b7','b8','b10','b11','b4','b5','b6','b17','b20']},
@@ -237,7 +246,7 @@ export function pickShift(level: Level = LEVELS[1], rand: () => number = Math.ra
   const shuffle = <T,>(a: T[]) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); ;[a[i], a[j]] = [a[j], a[i]] } return a }
   const shift: Customer[] = []
   for (const [g, n] of Object.entries(level.mix) as [Group, number][]) {
-    const all = shuffle(POOL.filter((c) => c.group === g && c.d <= level.maxD && (!level.ids || level.ids.includes(c.id))))
+    const all = shuffle(POOL.filter((c) => c.group === g && (!c.approval || !!level.ids?.includes(c.id)) && c.d <= level.maxD && (!level.ids || level.ids.includes(c.id))))
     const cands = [...all.filter((c) => !seen.has(c.id)), ...all.filter((c) => seen.has(c.id))]
     let got = 0
     for (const c of cands) {
@@ -247,4 +256,4 @@ export function pickShift(level: Level = LEVELS[1], rand: () => number = Math.ra
     }
   }
   return shuffle(shift)
-  }
+}
