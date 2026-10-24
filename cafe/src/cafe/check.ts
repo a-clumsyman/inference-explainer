@@ -172,6 +172,17 @@ const PROMISE = /\b(you('re| are) (all set|booked|confirmed)|(i('ve| have)|we('v
 
 /** Judges one customer against the live shift state. Pass the same State for a whole shift so stock and tables carry over. */
 export function check(c: Customer, reply: string, st: State = freshState(), instructions = '', requireTotal = false): Verdict {
+  if(c.clarify){
+    const marker='\n--- CUSTOMER CHOICE ---\n'
+    const parts=reply.split(marker)
+    const first=parseReply(parts[0])
+    const clear=first.action.t==='none' && /\?|which|what (?:drink|kind|type)|prefer/i.test(first.spoken)
+    const plain={...c,clarify:undefined}
+    if(parts.length===2 && clear)return check(plain,parts[1],st,instructions,requireTotal)
+    const held=check({...plain,req:{t:'ask',expect:'(?!)',want:'a useful drink clarification'}},first.spoken+'\nACTION: NONE',st,instructions,requireTotal)
+    const early=first.action.t==='order'||first.action.t==='book'
+    return {...held,ok:false,infra:!early,outcome:early?'differs':'na',helpful:false,action:first.action,system:'Held at the counter. No ticket can be sent before the customer chooses.',note:early?'The AI tried to act before the drink choice. Nothing was committed.':'The conversation is incomplete or the question is unclear. Unscored; retry this guest.'}
+  }
   const { spoken, action } = parseReply(reply)
   const leak = leaked(reply)
   let helpful: boolean | null = null
