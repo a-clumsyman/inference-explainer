@@ -128,7 +128,7 @@ export function Review({ run, sim, instr, standIn, busy, onInstrChange, onReplay
           <div className="sheet-h">BISCUIT&rsquo;S IDEA</div>
           {coachErr ? <p className="bad">{coachErr}</p> : (
             <p className="small dim">{coach
-              ? 'Biscuit had no suggestion for this moment.'
+              ? 'Biscuit could not provide a suggestion that passed the game checks for this moment. You can edit the instructions yourself.'
               : 'No ready-made tips here. Ask Biscuit and the coach reads what actually happened in this moment before suggesting one change.'}</p>
           )}
         </div>
