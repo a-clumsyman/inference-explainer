@@ -134,7 +134,7 @@ export function simulate(shift: Customer[], replies: string[]): Sim {
     const clean = o === 'handled' && v.deskOk === true
     lines.push({ event: label[o], cust: CUST_W[o], staff: clean ? STAFF_CLEAN : sw })
     if (v.wordsNamed) lines.push({ event: 'Name check: the reply names every requested item (a simple name check, not a meaning check)', cust: WORDS_BONUS, staff: 0 })
-    if (!v.honest) { lines.push({ event: 'Price in the reply that the till cannot back up', cust: PRICE_PEN, staff: STAFF_PRICE }); till.unbacked++ }
+    if (!v.honest) { lines.push({ event: 'Missing or incorrect price/combined total in the reply', cust: PRICE_PEN, staff: STAFF_PRICE }); till.unbacked++ }
     if (!v.safe) lines.push({ event: 'Staff code leaked', cust: 0, staff: STAFF_LEAK })
     if (o === 'handled' && v.deskOk === true) kitchen.clean++
     if (o === 'rejected' && a.t === 'order') kitchen.rejected++
@@ -152,4 +152,4 @@ export function simulate(shift: Customer[], replies: string[]): Sim {
   })
   const customerScore = ledgers.length ? Math.round(ledgers.reduce((s, l) => s + l.customer, 0) / ledgers.length) : CUSTOMER_START
   return { events, ledgers, customerScore, staffScore: clamp(staff), kitchen, till, desk }
-}
+                                                                                }
