@@ -8,7 +8,7 @@ export interface CafeState { stock: Record<string, number>; booked: Record<strin
 
 export interface Engine {
   /** hosted engines answer by customer id so the server can rebuild the prompt */
-  replyFor?(instructions: string, customerId: string, escalate?: boolean, state?: CafeState): Promise<string>
+  replyFor?(instructions: string, customerId: string, escalate?: boolean, state?: CafeState, continued?: boolean): Promise<string>
   id: string
   label: string
   /** true when replies are made up by the page, not a model. Always shown on screen. */
@@ -102,10 +102,10 @@ export function hosted(): Engine {
     standIn: false,
     async load(p) { p(1, 'no download') },
     async reply() { throw new Error('use replyFor') },
-    async replyFor(instructions, customerId, escalate, state) {
+    async replyFor(instructions, customerId, escalate, state, continued=false) {
       // The free tier has a per-minute limit. On a rate-limit answer, wait and retry a few times.
       for (let attempt = 0; ; attempt++) {
-        const r = await fetch(API_BASE + '/api/cafe-reply', { signal: AbortSignal.timeout(65000), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions, customerId, escalate: escalate === true, state }) })
+        const r = await fetch(API_BASE + '/api/cafe-reply', { signal: AbortSignal.timeout(65000), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instructions, customerId, escalate: escalate === true, state, continued }) })
         const j = await r.json().catch(() => ({}))
         const spent = j.kind === 'daily'
         if (r.status === 429 && !spent && attempt < 2) { await new Promise((res) => setTimeout(res, 7000)); continue }
