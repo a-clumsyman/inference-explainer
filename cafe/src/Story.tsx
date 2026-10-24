@@ -1,24 +1,51 @@
-import { useState } from 'react'
-import { AvatarBox, lookFor, reducedMotion } from './cafe/Scene.tsx'
+import { useEffect, useMemo, useState } from 'react'
+import { reducedMotion } from './cafe/Scene.tsx'
 import { mug } from './cafe/props.ts'
+import { BISCUIT, MAKER_IMG } from './cafe/sprites.ts'
+import { click, meow } from './cafe/sound.ts'
 
-/** The maker's own look: glasses and a hoodie. Clearly stylized pixel art, not a likeness. */
-const MAKER = { ...lookFor({ id: 'clumsyman-maker' }), hair: '#2b2230', shirt: '#4a6fa5', acc: 'glass' as const }
-
-/** The opening the maker asked for: he welcomes players himself and explains why the café exists. */
+/** The opening: the maker welcomes players himself, with Biscuit, and explains why the café exists. */
 const BEATS = [
   'Hey, welcome to the Corner Café! I am Clumsyman - I build AI for a living.',
   'A lot of people think AI is all-powerful. Building with it every day taught me: it really is not.',
   'An AI can miss details. It can make things up with a straight face. It never truly knows your café.',
   'Clear instructions help a lot. But even a good brief needs checking, every single time.',
   'So I built this place. You write the rules, my AI works the counter, and you watch what it actually does.',
+  'And this is Biscuit, my cat. She sits by the counter on every shift and helps you tune your words after.',
   'That is the whole idea: learn to guide AI by seeing where it slips. Your shift starts now.',
 ]
+/** Beat where Biscuit steps in and says hi. */
+const CAT_ENTERS = 5
+
+/** Reveal one word at a time, like dialogue in a game. A tap on the speech card finishes the line at once. */
+function useTypewriter(text: string) {
+  const words = useMemo(() => text.split(' '), [text])
+  const [shown, setShown] = useState(0)
+  const still = reducedMotion()
+  useEffect(() => { setShown(still ? words.length : 0) }, [text, still, words.length])
+  useEffect(() => {
+    if (shown >= words.length) return
+    const t = setTimeout(() => setShown((s) => s + 1), shown === 0 ? 120 : 130)
+    return () => clearTimeout(t)
+  }, [shown, words.length])
+  return { text: words.slice(0, shown).join(' '), done: shown >= words.length, finish: () => setShown(words.length) }
+}
 
 export function Story({ startLabel, onStart }: { startLabel: string; onStart: () => void }) {
   const [n, setN] = useState(0)
   const last = n === BEATS.length - 1
   const still = reducedMotion()
+  const tw = useTypewriter(BEATS[n])
+  const catHere = n >= CAT_ENTERS
+
+  useEffect(() => { if (n === CAT_ENTERS) meow() }, [n])
+
+  function next() {
+    click()
+    if (!tw.done) { tw.finish(); return }
+    if (!last) setN(n + 1)
+  }
+
   return (
     <section className="card story">
       <div className="storystage" aria-hidden>
@@ -35,21 +62,30 @@ export function Story({ startLabel, onStart }: { startLabel: string; onStart: ()
           <image href={mug} x="100" y="26" width="6" height="6" style={{ imageRendering: 'pixelated' }} />
         </svg>
         <div className={still ? 'maker' : 'maker pop'}>
-          <AvatarBox look={MAKER} mood="happy" px={7} label="Clumsyman, the maker of this game" pose={n === 0 ? 'wave' : 'idle'} talking />
+          <img className="makerimg" src={MAKER_IMG} alt="" />
           <span className="nametag">CLUMSYMAN · AI ENGINEER</span>
         </div>
+        {catHere && (
+          <div className={still ? 'storycat' : 'storycat pop'}>
+            <span className="catwrap" aria-hidden="true">
+              <img className={'catpix' + (still ? ' still' : '')} src={BISCUIT[0]} alt="" />
+              <img className={'catpix blink' + (still ? ' still' : '')} src={BISCUIT[1]} alt="" />
+            </span>
+            <span className="nametag">BISCUIT · SHIFT COACH</span>
+          </div>
+        )}
       </div>
-      <div className="speech" role="status">
-        <p className="speechline">{BEATS[n]}</p>
+      <div className="speech" role="status" onClick={() => { if (!tw.done) { click(); tw.finish() } }} style={{ cursor: tw.done ? 'default' : 'pointer' }}>
+        <p className="speechline">{tw.text}{tw.done ? '' : '▌'}</p>
         <div className="speechctl">
           <span className="dots" aria-label={`Message ${n + 1} of ${BEATS.length}`}>{BEATS.map((_, i) => <i key={i} className={i === n ? 'on' : ''} />)}</span>
-          {last
+          {last && tw.done
             ? <button className="btn start" onClick={onStart}>{startLabel}</button>
-            : <button className="btn ghost next" onClick={() => setN(n + 1)}>Next ▸</button>}
+            : <button className="btn ghost next" onClick={next}>{tw.done ? 'Next ▸' : 'Skip line ▸'}</button>}
         </div>
       </div>
       {!last && <button className="skiplink" onClick={onStart}>Skip intro</button>}
-      <p className="small credit">A game by Clumsyman. Café food art: Kenney (kenney.nl), CC0.</p>
+      <p className="small credit">A game by Clumsyman. Art: Kenney + OpenGameArt, CC0.</p>
     </section>
   )
 }
