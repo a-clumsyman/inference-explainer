@@ -329,4 +329,7 @@ t('combined: integer totals accepted', check(c('r2'), 'Total 8.\nACTION: ORDER c
 t('combined: total in cents accepted', check(c('r2'), 'Total 800 cents.\nACTION: ORDER cappuccino x2').honest)
 t('kitchen: duplicate stock lines cannot oversell', (() => { const s = freshState(); const d = kitchen([{name:'croissant',qty:2},{name:'croissant',qty:2}],s); return !d.ok && s.stock.croissant === 2 })())
 t('kitchen: duplicate quantities cannot cancel each other', !kitchen([{name:'latte',qty:2},{name:'latte',qty:-1}]).ok)
+t('ask: unsolicited order is not correct', !check(c('o1'), 'A latte is 4.50.\nACTION: ORDER latte x1').ok)
+t('ask: unsolicited stock order has real consequences', (() => { const s=freshState(); const v=check(c('o1'), 'A latte is 4.50.\nACTION: ORDER croissant x1',s); return !v.ok && s.stock.croissant === 1 && v.basket.length === 1 })())
+t('ask: unsolicited booking has real consequences', (() => { const s=freshState(); const v=check(c('o1'), 'A latte is 4.50.\nACTION: BOOK 2 at 15:00',s); return !v.ok && s.booked['15:00'] === 1 })())
 process.exit(fails ? 1 : 0)
