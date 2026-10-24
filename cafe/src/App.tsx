@@ -1,3 +1,4 @@
+import {conversationReady} from './cafe/conversation.ts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FACTS, MAX_WORDS, STARTER, CONTRACT, LEVELS, SECRET_CODE, pickShift, POOL, type Customer, type Level } from './cafe/data.ts'
 import { shiftChecker, checkedRows, reviewMoments, check, score, wordCount, describeAction, parseReply, type Verdict } from './cafe/check.ts'
@@ -8,7 +9,7 @@ import { simulate, moodOf, runAt, customerAt } from './cafe/sim.ts'
 import { CheckPage } from './Check.tsx'
 import { Biscuit } from './Biscuit.tsx'
 import { Repair } from './Repair.tsx'
-import { campaignKey,decodeCampaign,levelWon,unlocked } from './cafe/campaign.ts'
+import { campaignKey,decodeCampaign,levelWon,unlocked,matchesLevel } from './cafe/campaign.ts'
 import { Review, type Run } from './Review.tsx'
 import { SAVE_KEY, encodeProgress, decodeProgress } from './cafe/save.ts'
 import { Story } from './Story.tsx'
@@ -61,7 +62,7 @@ export default function App() {
     } catch { setSaveNotice('This browser could not save progress. Keep this tab open.') }
   }, [instr, lvl, screen, shift, rows, runs, partial])
   useEffect(()=>{try{localStorage.setItem(progressMapKey,JSON.stringify(campaign))}catch{}},[campaign])
-  useEffect(()=>{if(screen!=='result'||!runs.length)return;const r=runs.at(-1)!;if(r.planned===Object.values(LEVELS[lvl].mix).reduce((a,b)=>a+(b??0),0)&&levelWon(r.rows,r.planned))setCampaign(old=>({...old,cleared:[...new Set([...old.cleared,lvl])],best:{...old.best,[lvl]:Math.max(old.best[lvl]??0,r.rows.filter(x=>x.v.ok).length)}}))},[screen,runs,lvl])
+  useEffect(()=>{if(screen!=='result'||!runs.length)return;const r=runs.at(-1)!;if(matchesLevel(r,LEVELS[lvl])&&levelWon(r.rows,r.planned))setCampaign(old=>({...old,cleared:[...new Set([...old.cleared,lvl])],best:{...old.best,[lvl]:Math.max(old.best[lvl]??0,r.rows.filter(x=>x.v.ok).length)}}))},[screen,runs,lvl])
   function chooseLevel(n:number){if(busy||!unlocked(campaign,n))return;setLvl(n);setRuns([]);setRows([]);setPartial(null);setShift(pickShift(LEVELS[n]));setErr('');setScreen('write')}
   function resetProgress() {
     if (busy) return
@@ -134,10 +135,10 @@ export default function App() {
           throw new Error('forced test error')
         }
         let reply = await (engine.replyFor ? engine.replyFor(text, c.id, false, acc.length ? { stock: acc[acc.length - 1].v.stockAfter, booked: acc[acc.length - 1].v.bookedAfter } : undefined) : engine.reply(text, c.line))
-        if(c.clarify && parseReply(reply).action.t==='none' && /\?|which|what (?:drink|kind|type)|prefer/i.test(parseReply(reply).spoken)){
+        if(conversationReady(c,parseReply(reply).spoken,parseReply(reply).action.t)){
           const first=reply;setChoice({c,first});await new Promise<boolean>(resolve=>{choiceResolve.current=resolve});setChoice(null);choiceResolve.current=null
           const state=acc.length?{stock:acc.at(-1)!.v.stockAfter,booked:acc.at(-1)!.v.bookedAfter}:undefined
-          const next=engine.replyFor?await engine.replyFor(text,c.id,false,state,true):await engine.reply(text,c.clarify)
+          const next=engine.replyFor?await engine.replyFor(text,c.id,false,state,true,first):await engine.reply(text,c.clarify!)
           reply=first+'\n--- CUSTOMER CHOICE ---\n'+next
         }
         acc.push({ c, reply, v: chk(c, reply), instructions: text })
@@ -261,7 +262,7 @@ export default function App() {
           <Biscuit spot="shift" />
           <div className="meter">Customer {Math.min(busy && player.idx >= live.events.length ? rows.length + 1 : customerAt(live.events, player.idx), shift.length)} of {shift.length}</div>
           <Scene shift={shift} events={live.events} idx={player.idx} pending={busy && rows.length < shift.length && player.idx >= live.events.length ? shift[rows.length] : null} />
-          {choice&&<div className="lesson-gate"><h2>Customer is waiting for a choice</h2><blockquote>{parseReply(choice.first).spoken}</blockquote><p>No ticket has been sent. Listen to what the customer chooses.</p><button className="btn" onClick={()=>choiceResolve.current?.(true)}>Customer answers: {choice.c.clarify}</button></div>}
+          {choice&&<div className="lesson-gate"><h2>{choice.c.approval?'Customer is considering the quote':'Customer is waiting for a choice'}</h2><blockquote>{parseReply(choice.first).spoken}</blockquote><p>No ticket has been sent. Hear the customer before continuing.</p><button className="btn" onClick={()=>choiceResolve.current?.(true)}>Customer answers: {choice.c.clarify}</button></div>}
           <div className="ctl">
             {(player.idx < live.events.length || finishedRun) && (player.paused
               ? <button className="btn" onClick={player.resume}>Resume ▸</button>
@@ -321,7 +322,8 @@ export default function App() {
 function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame }: { runs: Run[]; level: Level; hasNext: boolean; engine: Engine; onNext: () => void; onEdit: () => void; onReview: () => void; onSame: () => void }) {
   const run = runs[runs.length - 1]
   const passMark = run.planned
-  const campaignWon=run.planned===Object.values(level.mix).reduce((a,b)=>a+(b??0),0)&&levelWon(run.rows,run.planned)
+  const campaignWon=matchesLevel(run,level)&&levelWon(run.rows,run.planned)
+  const historical=!matchesLevel(run,level)
   const prev = runs.length > 1 ? runs[runs.length - 2] : null
   const sc = score(run.rows.map((r) => r.c), run.rows.map((r) => r.reply), passMark, run.instructions, false, run.rows.map(r => r.instructions))
   const psc = prev ? score(prev.rows.map((r) => r.c), prev.rows.map((r) => r.reply), passMark, prev.instructions, false, prev.rows.map(r => r.instructions)) : null
@@ -345,9 +347,10 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
   const badCount = reviewMoments(checkedRows(run.rows, run.instructions)).length
   return (
     <section className="card">
-      <h1 className={sc.total === 0 ? '' : campaignWon ? 'win' : 'lose'}>{sc.total === 0 ? 'No guests scored yet' : go.over ? 'Shift closed early' : campaignWon ? 'Level cleared' : 'Shift needs another try'} <small>{level.title}</small></h1>
+      <h1 className={sc.total === 0 ? '' : campaignWon ? 'win' : 'lose'}>{historical?'Saved earlier shift':sc.total === 0 ? 'No guests scored yet' : go.over ? 'Shift closed early' : campaignWon ? 'Level cleared' : 'Shift needs another try'} <small>{historical?`${run.planned}-guest run`:level.title}</small></h1>
+      {historical&&<p className="chip">This saved shift uses an earlier customer queue. Its replies and results are kept below. It does not clear {level.title}. Choose the current level from the map to start its new queue; your instructions carry forward.</p>}
       {campaignWon&&!hasNext&&<p className="chip">All seven levels cleared. Keep your instructions, replay any level from the map, or try a different approach.</p>}
-      <p className="chip"><b>Level goal:</b> {level.goal}<br/><b>Unlock:</b> {level.unlock}</p><p>{sc.total === 0 ? 'Nothing here was scored against your instructions.' : campaignWon ? `${sc.served} of ${sc.total} served right.` : `${sc.served} of ${sc.total} served right - ${badCount} moment${badCount === 1 ? '' : 's'} to look at.`}{sc.unreadable > 0 ? ` (${sc.unreadable} system or unsure-wording moment${sc.unreadable === 1 ? '' : 's'}, not scored.)` : ''}</p>
+      {!historical&&<p className="chip"><b>Level goal:</b> {level.goal}<br/><b>Unlock:</b> {level.unlock}</p>}<p>{sc.total === 0 ? 'Nothing here was scored against your instructions.' : campaignWon ? `${sc.served} of ${sc.total} served right.` : `${sc.served} of ${sc.total} served right - ${badCount} moment${badCount === 1 ? '' : 's'} to look at.`}{sc.unreadable > 0 ? ` (${sc.unreadable} system or unsure-wording moment${sc.unreadable === 1 ? '' : 's'}, not scored.)` : ''}</p>
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
       {go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} The shift closed at customer {go.at} of {run.planned}. {run.planned - run.rows.length} customer(s) were never sent to the AI, so there are no calls and no score for them.</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
       {!go.over && go.warn && <p className="warnline">Warning: {go.reason} From Day 2 this closes the shift.</p>}
