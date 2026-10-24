@@ -48,7 +48,7 @@ export function describeAction(reply: string): string {
   switch (action.t) {
     case 'order': return `${action.items.map((i) => `${i.name} x${i.qty}`).join(', ')} - to the kitchen`
     case 'book': return `a booking for ${action.n} at ${action.time} - to the desk`
-    case 'none': return 'nothing (a clear no)'
+    case 'none': return 'nothing (no order or booking sent)'
     case 'unreadable': return 'nothing the cafe system could read'
     case 'missing': return 'nothing (no action line)'
   }
