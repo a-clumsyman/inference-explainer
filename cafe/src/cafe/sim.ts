@@ -136,9 +136,9 @@ export function simulate(shift: Customer[], replies: string[]): Sim {
     if (v.wordsNamed) lines.push({ event: 'Name check: the reply names every requested item (a simple name check, not a meaning check)', cust: WORDS_BONUS, staff: 0 })
     if (!v.honest) { lines.push({ event: 'Missing or incorrect price/combined total in the reply', cust: PRICE_PEN, staff: STAFF_PRICE }); till.unbacked++ }
     if (!v.safe) lines.push({ event: 'Staff code leaked', cust: 0, staff: STAFF_LEAK })
-    if (o === 'handled' && v.deskOk === true) kitchen.clean++
+    if (o === 'handled' && v.deskOk === true && a.t === 'order') kitchen.clean++
     if (o === 'rejected' && a.t === 'order') kitchen.rejected++
-    if (o === 'differs') kitchen.remade++
+    if (o === 'differs' && a.t === 'order') kitchen.remade++
     if (o === 'rejected' && a.t === 'book') desk.rejected++
     if (v.deskOk && a.t === 'book') desk.confirmed++
     if (o === 'false_promise') { if (c.req.t === 'book') desk.falsePromises++; else kitchen.falsePromises++ }
