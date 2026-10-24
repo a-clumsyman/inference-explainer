@@ -61,7 +61,7 @@ export interface Sim {
 const basketText = (b: { name: string; qty: number }[]) => b.map((i) => `${i.name} x${i.qty}`).join(', ')
 
 /** Turns a finished shift (customers + the AI's raw replies) into an event log and score ledgers. Pure and deterministic. */
-export function simulate(shift: Customer[], replies: string[], instructions = '', requireTotal = false): Sim {
+export function simulate(shift: Customer[], replies: string[], instructions = '', requireTotal = false, rowInstructions: (string | undefined)[] = []): Sim {
   const chk = shiftChecker(instructions, requireTotal)
   const events: Ev[] = []
   const ledgers: Ledger[] = []
@@ -73,7 +73,7 @@ export function simulate(shift: Customer[], replies: string[], instructions = ''
   const push = (e: Omit<Ev, 'idx'>) => events.push({ ...e, idx: events.length })
   shift.forEach((c, i) => {
     const stockBefore = i > 0 ? events[events.length - 1].stock : { croissant: 2, 'banana bread': 1 }
-    const v: Verdict = chk(c, replies[i] ?? '')
+    const v: Verdict = chk(c, replies[i] ?? '', rowInstructions[i] ?? instructions)
     push({ cid: c.id, kind: 'arrive', text: `${c.who} arrives: "${c.line}"`, stock: stockBefore, booked: bookedCount })
     push({ cid: c.id, kind: 'answered', text: `AI says: ${v.spoken || '(nothing)'}`, stock: stockBefore, booked: bookedCount })
     const a = v.action
@@ -152,4 +152,4 @@ export function simulate(shift: Customer[], replies: string[], instructions = ''
   })
   const customerScore = ledgers.length ? Math.round(ledgers.reduce((s, l) => s + l.customer, 0) / ledgers.length) : CUSTOMER_START
   return { events, ledgers, customerScore, staffScore: clamp(staff), kitchen, till, desk }
-                                                                                }
+}
