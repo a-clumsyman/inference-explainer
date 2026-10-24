@@ -346,6 +346,7 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
   return (
     <section className="card">
       <h1 className={sc.total === 0 ? '' : campaignWon ? 'win' : 'lose'}>{sc.total === 0 ? 'No guests scored yet' : go.over ? 'Shift closed early' : campaignWon ? 'Level cleared' : 'Shift needs another try'} <small>{level.title}</small></h1>
+      {campaignWon&&!hasNext&&<p className="chip">All seven levels cleared. Keep your instructions, replay any level from the map, or try a different approach.</p>}
       <p className="chip"><b>Level goal:</b> {level.goal}<br/><b>Unlock:</b> {level.unlock}</p><p>{sc.total === 0 ? 'Nothing here was scored against your instructions.' : campaignWon ? `${sc.served} of ${sc.total} served right.` : `${sc.served} of ${sc.total} served right - ${badCount} moment${badCount === 1 ? '' : 's'} to look at.`}{sc.unreadable > 0 ? ` (${sc.unreadable} system or unsure-wording moment${sc.unreadable === 1 ? '' : 's'}, not scored.)` : ''}</p>
       <Scene shift={shiftC} events={sim.events} idx={pl.idx} />
       {go.over && <div className="over" role="alert"><b>Shift closed early</b><p>{go.reason} The shift closed at customer {go.at} of {run.planned}. {run.planned - run.rows.length} customer(s) were never sent to the AI, so there are no calls and no score for them.</p><button className="btn" onClick={onSame}>Retry: same customers</button></div>}
@@ -418,4 +419,4 @@ function Result({ runs, level, hasNext, engine, onNext, onEdit, onReview, onSame
 
 function Meter({ label, val, good, neutral }: { label: string; val: string; good: boolean; neutral?: boolean }) {
   return <div className={'m ' + (neutral ? 'neutral' : good ? 'good' : 'badm')}><span>{label}</span><b>{val}</b></div>
-            }
+}
