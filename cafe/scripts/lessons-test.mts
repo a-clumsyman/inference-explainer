@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs'
 import {base,encodeLessonProgress,decodeLessonProgress} from '../src/cafe/lesson-save.ts'
 import {LESSONS,lessonCustomer,lessonFacts,assessLesson} from '../src/cafe/lessons.ts'
 import handler from '../../api/cafe-reply.ts'
@@ -45,4 +46,12 @@ t('save unknown day refused',decodeLessonProgress(JSON.stringify({...p,day:9}))=
 t('save bad version refused',decodeLessonProgress(JSON.stringify({...p,version:2}))===null)
 t('save corrupt refused',decodeLessonProgress('{broken')===null)
 t('save approval persists only as explicit record',decodeLessonProgress(encodeLessonProgress({...p,approval:true}))?.approval===true)
+
+
+const appSource=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8')
+const curriculumSource=readFileSync(new URL('../src/Curriculum.tsx',import.meta.url),'utf8')
+t('one cafe entry has no mode switch or URL bypass',appSource.includes('return <Curriculum/>')&&!appSource.includes('MixedApp')&&!appSource.includes('location.search'))
+t('journey has no separate mode exits',!curriculumSource.includes('onMixed')&&!/old café|mixed shift|mixed-shift/i.test(curriculumSource))
+t('extra practice stays inside lessons',curriculumSource.includes('choose any day above to repeat its challenge'))
+
 console.log(`${count} lesson checks passed`)
